@@ -1,2 +1,2 @@
 # atac-seq
-This repository contains for codes for atac-seq processing
+This repository contains codes for atac-seq processing
