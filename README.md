@@ -27,9 +27,6 @@ fastqc <read1_trimmed.fastq> <read2_trimmed.fastq>
 ## Mapping
 The trimmed read are mapped to respective genome using [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml). Since the minimum distance between is two Tn5 binding sites are about 38bp only fragment size greater than this is kept.
 ```sh
-bowtie2  -X 2000 --fr --no-discordant --no-mixed --minins 38  
---met-file <alignmetrics.txt> 
--x <bowtie-index>
--1 <read1_trimmed.fastq> -2 <read2_trimmed.fastq> 
--S <output.sam>
+bowtie2  -X 2000 --fr --no-discordant --no-mixed --minins 38  --met-file <alignmetrics.txt> 
+-x <bowtie-index> -1 <read1_trimmed.fastq> -2 <read2_trimmed.fastq>  -S <output.sam>
 ```
