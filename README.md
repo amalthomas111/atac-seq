@@ -12,6 +12,7 @@ trim_galore --paired   <read1.fastq> <read2.fastq> --output_dir  <output directo
 ```
 Optional arguments for trim_galore:
 To remove low quality reads:
+
 --quality <cutoff>
 ## Quality control
 
