@@ -10,9 +10,9 @@ For paired end reads:
 ```sh
 trim_galore --paired   <read1.fastq> <read2.fastq> --output_dir  <output directory>
 ```
-
-Optional arguments for trim_galore):
-To remove low quality reads: --quality <cutoff>
+Optional arguments for trim_galore:
+To remove low quality reads:
+--quality <cutoff>
 ## Quality control
 
 In general, the quality of high throughput sequencing data need to be assessed before using them to perform other analyses.
