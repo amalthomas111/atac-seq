@@ -7,10 +7,9 @@ Using [Trim Galore](http://www.bioinformatics.babraham.ac.uk/projects/trim_galor
 
 Command:
 For paired end reads:
-
-'''sh
+```sh
 trim_galore --paired   <read1.fastq> <read2.fastq> --output_dir  <output directory>
-'''
+```
 
 Optional arguments for trim_galore):
 To remove low quality reads: --quality <cutoff>
