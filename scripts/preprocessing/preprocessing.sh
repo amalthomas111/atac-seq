@@ -20,7 +20,6 @@ cd "$PBS_O_WORKDIR"
 ############################
 #### scripts required#######
 #getinsertsize.R
-#ATAC_BAM_shifter_gappedAlign.pl
 #############################
 
 printf "start: \n$(date)\n"
@@ -30,7 +29,7 @@ printf "start: \n$(date)\n"
 
 ## Trim adapters ##
 printf "Trim galore \n $(date)\n"
-trim_galore --paired --quality 20 --nextera rawreads/$INPUT_FILE"_1.fastq" rawreads/$INPUT_FILE"_2.fastq" --output_dir  reads
+trim_galore --paired --quality 30 --nextera rawreads/$INPUT_FILE"_1.fastq" rawreads/$INPUT_FILE"_2.fastq" --output_dir  reads
 
 ##Run fastqc ##
 printf "Trim_galore over\n$(date)\nChecking quality"
@@ -45,34 +44,44 @@ mv reads/$INPUT_FILE"_2_val_2.fq" reads/$INPUT_FILE"_2_trimmed.fastq"
 ## map reads using bowtie2 ##
 printf "\nRenaming done\n$(date)\nBowtie \n"
 bowtie2 -p 8 -X 2000 --fr --no-discordant --no-mixed --minins 38 \
---met-file bams/$INPUT_FILE".alignmetrics.txt" \
+--met-file quality/$INPUT_FILE".alignmetrics.txt" \
 -x "/home/rcf-40/amalthom/staging_work/2.genome/bowti2_index/hg19/hg19" \
 -1 reads/$INPUT_FILE"_1_trimmed.fastq" -2 reads/$INPUT_FILE"_2_trimmed.fastq" \
 -S bams/$INPUT_FILE".sam"
 
 ## sort sam ##
 printf "\nBowtie done\n$(date)\nSorting by samtools\n$(date)\n"
-samtools view -bS bams/$INPUT_FILE".sam" |samtools sort - bams/$INPUT_FILE".sorted"
+samtools view -bS bams/$INPUT_FILE".sam" |samtools sort - bams/$INPUT_FILE".filt.sorted"
 
 ## Remove unwanted chromosome ##
 printf "\nSorting done \n$(date)\nRemove unwanted chroms \n$(date)\n"
-samtools view -h bams/$INPUT_FILE".sorted.bam"\
+samtools view -h bams/$INPUT_FILE".filt.sorted.bam"\
 |awk 'substr($0,1,1) == "@"|| (length($3)<=5 && $3!="chrM" && $3 != "*"){{print $0}}'\
-|samtools view -bS - > bams/$INPUT_FILE".sorted.chr.bam"
+|samtools view -bS - > bams/$INPUT_FILE".filt.sorted.chr.bam"
+
+## library complexity ##
+java -Xmx2g -jar /home/rcf-40/amalthom/panases_soft/picard_1.122/EstimateLibraryComplexity.jar \
+     I=bams/$INPUT_FILE".filt.sorted.chr.bam" \
+     O=quality/$INPUT_FILE"_lib_complex_metrics.txt"
+##
 
 ## Remove duplicates ##
-printf "\nRemove unwanted chroms done\n$(date)\nRemove duplicates\n"
+printf "\nRemove  done\n$(date)\nRemove duplicates\n"
 java -Xmx2g -jar /home/rcf-40/amalthom/panases_soft/picard_1.122/MarkDuplicates.jar \
-INPUT=bams/$INPUT_FILE".sorted.chr.bam" \
+INPUT=bams/$INPUT_FILE".filt.sorted.chr.bam" \
 METRICS_FILE=bams/$INPUT_FILE".markdup.metrics" \
-OUTPUT=bams/$INPUT_FILE".sorted.chr.nodup.bam" \
+OUTPUT=bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" \
 REMOVE_DUPLICATES=true \
 ASSUME_SORTED=true
 
-## Remove low quality reads ##
-printf "\nRemove duplicates done\n$(date)\nFilter_bam using samtools\n"
-samtools view -b -h -q 30 bams/$INPUT_FILE".sorted.chr.nodup.bam" \
- > bams/$INPUT_FILE".sorted.chr.nodup.filt.bam"
+## Mark duplicates ##
+printf "\nRemove  done\n$(date)\nRemove duplicates\n"
+java -Xmx2g -jar /home/rcf-40/amalthom/panases_soft/picard_1.122/MarkDuplicates.jar \
+INPUT=bams/$INPUT_FILE".filt.sorted.chr.bam" \
+METRICS_FILE=bams/$INPUT_FILE".markdup.metrics" \
+OUTPUT=bams/$INPUT_FILE".filt.sorted.chr.markdup.bam" \
+REMOVE_DUPLICATES=false \
+ASSUME_SORTED=true
 
 ##### MAPPING & FILTERING END #######
 
@@ -80,46 +89,57 @@ samtools view -b -h -q 30 bams/$INPUT_FILE".sorted.chr.nodup.bam" \
 
 ## Insert size and alignment stats ##
 printf "\nInsert size\n"
-samtools view -f66 bams/$INPUT_FILE".sorted.chr.nodup.filt.bam" |cut -f 9|sed 's/^-//' > $INPUT_FILE"_insertsize.txt"
+samtools view -f66 bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" |cut -f 9|sed 's/^-//' > $INPUT_FILE"_insertsize.txt"
 Rscript getinsertsize.R $INPUT_FILE"_insertsize.txt"
-mv $INPUT_FILE"_insertsize.txt"  "hist_"$INPUT_FILE"_insertsize.txt.png" $INPUT_FILE"_insertsize.txt_density.png"quality/
+mv $INPUT_FILE"_insertsize.txt"  "hist_"$INPUT_FILE"_insertsize.txt.png" $INPUT_FILE"_insertsize.txt_density.png" quality/
 
 ## mapped stats ##
-samtools index bams/$INPUT_FILE".sorted.chr.nodup.filt.bam"  bams/$INPUT_FILE".sorted.chr.nodup.filt.bam.bai"
-samtools flagstat  bams/$INPUT_FILE".sorted.chr.nodup.filt.bam"  \
-	quality/$INPUT_FILE".sorted.chr.nodup.filt.bam.flagstat.qc"
+samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam.bai"
+samtools flagstat  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  \
+	quality/$INPUT_FILE".filt.sorted.chr.nodup.bam.flagstat.qc"
 
 ## qualimap ###
-$qualimap bamqc -bam bams/$INPUT_FILE".sorted.chr.nodup.filt.bam"  -outdir quality -outfile \
- $INPUT_FILE".sorted.chr.nodup.filt.qualimap.pdf"
+$qualimap bamqc -bam bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  -outdir quality -outfile \
+ $INPUT_FILE".filt.sorted.chr.nodup.qualimap.pdf"
 ## qualimap ##
+
 
 ###### QUALITY CHECKS END ######
 
 ## Shifting coordinates to center of cut site ##
 printf "\nCentering cordinates\n"
-perl ATAC_BAM_shifter_gappedAlign.pl bams/$INPUT_FILE".sorted.chr.nodup.filt.bam" \
-bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.temp"
-samtools sort bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.temp.bam" \
- bams/$INPUT_FILE".sorted.chr.nodup.filt.shift"
-rm bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.temp.bam"
+
+bamToBed -i bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" > $INPUT_FILE".temp.bed"
+samtools view  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" | awk 'BEGIN{OFS="\t"}{print $1,$9}' > $INPUT_FILE".insert.temp"
+paste $INPUT_FILE".temp.bed" $INPUT_FILE".insert.temp" | \
+awk 'BEGIN{OFS="\t"}{split($4,name,"/");if(name[1]== $7 && $6 == "+" ){print $1,$2+4,$3,$4,$8,$6}  \
+ else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} \
+ else {print "ERROR",name[1],$7}}' > beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed"
+
+bedToBam -i beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed"  \
+-g /home/rcf-40/amalthom/panases_soft/hg19.sizes | samtools sort -  \
+bams/$INPUT_FILE".filt.sorted.chr.nodup.shift"
+samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"
+
+rm $INPUT_FILE".temp.bed" $INPUT_FILE".insert.temp"
 printf "\nCentering done\n$(date)\n"
 
 ## cut site center bed file ##
-bedtools bamtobed  -i bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.bam" | \
+cat beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed" | \
 awk 'BEGIN{OFS="\t"}{if($6 == "-") $2=$3-1; print $1, $2, $2+1, $4, $5, $6}'| sort -k 1,1 -k2,2n >  \
-beds/$INPUT_FILE".sorted.chr.nodup.filt.shift.center.bed"
-bedToBam -i beds/$INPUT_FILE".sorted.chr.nodup.filt.shift.center.bed"  \
+beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.center.bed"
+
+bedToBam -i beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.center.bed"  \
 -g /home/rcf-40/amalthom/panases_soft/hg19.sizes | samtools sort -  \
-bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.center"
-samtools index bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.center.bam"
+bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.center"
+samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.center.bam"
 
 ## homer tag directory ##
 makeTagDirectory quality/"homertag_"$INPUT_FILE -genome hg19 -keepAll -checkGC  \
- -fragLength 1 bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.center.bam"
+ -fragLength 1 bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.center.bam"
 
 ## bed file for accessible regions ##
-bedtools slop -i beds/$INPUT_FILE".sorted.chr.nodup.filt.shift.center.bed" \
+bedtools slop -i beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.center.bed" \
 -g /home/rcf-40/amalthom/panases_soft/hg19.sizes \
 -b 15 > beds/$INPUT_FILE".15bpshifted.bed" 
 
@@ -132,7 +152,7 @@ samtools index bams/$INPUT_FILE".15bpshifted.bam"
 ## macs ##
 export PATH=/home/rcf-40/amalthom/panases_soft/anaconda3/envs/py2.7/bin/:$PATH
 macs2 callpeak --gsize hs \
-         --treatment beds/$INPUT_FILE".sorted.chr.nodup.filt.shift.bam"  \
+         --treatment beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"  \
          --outdir peaks/ \
          --name $INPUT_FILE \
          --keep-dup all \
@@ -148,7 +168,7 @@ macs2 callpeak --gsize hs \
 ## make bed graph ##
 
 printf "\nBam_to_sorted_bed done\n$(date)\Make_bedgraph_and_bigwig\n"
- librarySize=$(samtools view -c -F 4 bams/$INPUT_FILE".sorted.chr.nodup.filt.shift.bam")
+ librarySize=$(samtools view -c -F 4 bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam")
 touch quality/$INPUT_FILE"_lib.size."$librarySize
  expr="1000000 / $librarySize"
  scaling_factor=$(echo $expr | bc -l)
