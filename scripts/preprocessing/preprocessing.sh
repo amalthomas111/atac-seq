@@ -152,7 +152,7 @@ samtools index bams/$INPUT_FILE".15bpshifted.bam"
 ## macs ##
 export PATH=/home/rcf-40/amalthom/panases_soft/anaconda3/envs/py2.7/bin/:$PATH
 macs2 callpeak --gsize hs \
-         --treatment beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"  \
+         --treatment bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"  \
          --outdir peaks/ \
          --name $INPUT_FILE \
          --keep-dup all \
@@ -183,9 +183,14 @@ bedtools genomecov -i beds/$INPUT_FILE".15bpshifted.bed"  \
  ~/panases_soft/bedGraphToBigWig beds/$INPUT_FILE".bedgraph" \
 /home/rcf-40/amalthom/panases_soft/hg19.sizes tracks/$INPUT_FILE".bw"
 
+## remove blacklisted regions from peaks ##
+intersectBed -v -a peaks/$INPUT_FILE"_peaks.narrowPeak" \
+ -b /home/rcf-40/amalthom/panases_soft/hg19_blacklist/hg19_consensusBlacklist.bed >  \
+ peaks/$INPUT_FILE"_peaks.narrowPeak.blacklistcleared"
+##
 
 printf "\nCall macs peak done\n$(date)\nmake peak_track\n"
-awk '{{OFS="\t"; print $1, $2, $3}}' peaks/$INPUT_FILE"_peaks.narrowPeak" \
+awk '{{OFS="\t"; print $1, $2, $3}}' $INPUT_FILE"_peaks.narrowPeak.blacklistcleared" \
 | sort -k 1,1 -k 2,2n > tracks/$INPUT_FILE".temp"
 
 ## make bigbed ##
