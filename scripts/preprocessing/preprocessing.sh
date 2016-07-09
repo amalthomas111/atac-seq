@@ -83,6 +83,8 @@ OUTPUT=bams/$INPUT_FILE".filt.sorted.chr.markdup.bam" \
 REMOVE_DUPLICATES=false \
 ASSUME_SORTED=true
 
+samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"
+
 ##### MAPPING & FILTERING END #######
 
 ##### QUALITY CHECKS START ######
@@ -91,7 +93,7 @@ ASSUME_SORTED=true
 printf "\nInsert size\n"
 samtools view -f66 bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" |cut -f 9|sed 's/^-//' > $INPUT_FILE"_insertsize.txt"
 Rscript getinsertsize.R $INPUT_FILE"_insertsize.txt"
-mv $INPUT_FILE"_insertsize.txt"  "hist_"$INPUT_FILE"_insertsize.txt.png" $INPUT_FILE"_insertsize.txt_density.png" quality/
+mv $INPUT_FILE"_insertsize.txt"  "hist_"$INPUT_FILE"_insertsize.txt.png" "hist_"$INPUT_FILE"_insertsize.txt_density.png" quality/
 
 ## mapped stats ##
 samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam.bai"
@@ -117,7 +119,7 @@ awk 'BEGIN{OFS="\t"}{split($4,name,"/");if(name[1]== $7 && $6 == "+" ){print $1,
  else {print "ERROR",name[1],$7}}' > beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed"
 
 bedToBam -i beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed"  \
--g /home/rcf-40/amalthom/panases_soft/hg19.sizes | samtools sort -  \
+ -g /home/rcf-40/amalthom/panases_soft/hg19.sizes | samtools sort -  \
 bams/$INPUT_FILE".filt.sorted.chr.nodup.shift"
 samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"
 
@@ -152,7 +154,8 @@ samtools index bams/$INPUT_FILE".15bpshifted.bam"
 ## macs ##
 export PATH=/home/rcf-40/amalthom/panases_soft/anaconda3/envs/py2.7/bin/:$PATH
 macs2 callpeak --gsize hs \
-         --treatment bams/$INPUT_FILE".filt.sorted.chr.nodup.shift.bam"  \
+	 -f BED \
+         --treatment beds/$INPUT_FILE".filt.sorted.chr.nodup.shift.bed"  \
          --outdir peaks/ \
          --name $INPUT_FILE \
          --keep-dup all \
@@ -190,7 +193,7 @@ intersectBed -v -a peaks/$INPUT_FILE"_peaks.narrowPeak" \
 ##
 
 printf "\nCall macs peak done\n$(date)\nmake peak_track\n"
-awk '{{OFS="\t"; print $1, $2, $3}}' $INPUT_FILE"_peaks.narrowPeak.blacklistcleared" \
+awk '{{OFS="\t"; print $1, $2, $3}}' peaks/$INPUT_FILE"_peaks.narrowPeak.blacklistcleared" \
 | sort -k 1,1 -k 2,2n > tracks/$INPUT_FILE".temp"
 
 ## make bigbed ##
