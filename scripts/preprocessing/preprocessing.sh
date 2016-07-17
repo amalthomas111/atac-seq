@@ -1,14 +1,3 @@
-#PBS -S /bin/bash
-#PBS -l nodes=1:ppn=8
-#PBS -l  mem=10000MB
-#PBS -l vmem=10000MB
-#PBS -l pmem=10000MB
-#PBS -l walltime=100:00:00
-#PBS -q cmb
-#!/bin/bash
-cd "$PBS_O_WORKDIR"
-
-
 ### folders required#####
 #reads
 #rawreads
