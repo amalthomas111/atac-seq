@@ -35,7 +35,7 @@ sapply(counts, length)
 
 #convert to data.frame
 df <- data.frame(do.call("cbind",counts))
-#remove any rows if any element is zero
+#remove rows if any element is zero
 df.filt <- df[ !rowSums(df[,colnames(df)[(1:ncol(df))]]==0)>=1, ]
 
 #plots
@@ -52,7 +52,6 @@ png(filename = "heatmap.png",width = 480, height = 480)
 heatmap.2(corr.matrix, col=colfunc(10),margins=c(15,15),symm=F,
           trace="none",distfun=function (x) as.dist(1-x),hclust=function(x) hclust(x,method="ward.D"))
 dev.off()
-
 png(filename = "68H-correlation.png",width = 480, height = 480)
 plot(df.filt[,1],df.filt[,2], col=rgb(0,100,0,50,maxColorValue=255), 
          pch=16, log="xy", main="68H" , xlab = "68H.R1", ylab= "68H.R2",
@@ -74,6 +73,3 @@ dev.off()
 #         pch=16, main="68H" ,xlab = "log(no. of cuts) 68H",
 #          xaxt ='n',yaxt = 'n')#labels=FALSE)
 #dev.off()
-
-#mergeBam(bamfiles[1:3], "A549_input_merged.bam")
-#mergeBam(bamfiles[4:7], "MCF7_input_merged.bam")

@@ -1,0 +1,84 @@
+\documentclass[10pt]{article}
+
+\usepackage{times,fullpage,graphicx,amsmath, subfigure}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+
+\title{\bf atac-seq pipeline} 
+\author{Amal Thomas}
+
+%% For program names
+\newcommand{\prog}[1]{\texttt{#1}}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+A computational pipeline for processing and analyzing atac-seq data
+\end{center} 
+
+%%\tableofcontents
+%%\newpage
+
+\section{Overview}
+In our pipeline, we provide a handy work flow to process the atac-seq data and identify those regions with differential chromatin profile. The pipeline has mainly two parts:
+\begin{itemize}
+\item Pre-processing part: Here we process the input raw data and prepare it for the downstream analysis. The main steps include quality checks of the raw data, read alignment to the appropriate reference genome and subsequent filtering, peak calling and creating UCSC Track Hub. 
+\item Post-processing part: Here we try to identify those chromosomal regions that show significant difference in the chromatin accessibility. 
+\end{itemize}
+Users are assumed to have prior experience with UNIX/Linux environment and common bioinformatics tools.
+
+\section{Pre-processing}
+
+\subsection{Mapping reads}
+\paragraph{Input files:} The input to our pipeline is raw next generation sequencing data in the FASTQ format. The raw files from Sequence Read Archive (SRA), have to be decompressed and properly split to generate the right FASTQ files.
+\paragraph{Quality check:} \prog{FastQC} provides an easy way to analyse the quality of raw sequencing data. This will give us a hint whether our data has any experimental error. One can employ the tool by the following command:
+\begin{verbatim}
+fastqc <read1.fastq> <read2.fastq> -o <outputdir>
+\end{verbatim}
+\paragraph{Removing adapters:} Sequencing adapters can be easily removed using  \prog{trimgalore} program. Typical command for paired end reads is:\\
+\begin{verbatim}
+trim_galore --paired   <read1.fastq>  <read2.fastq>  \
+  --output_dir  <output directory>
+\end{verbatim}
+Optional arguments:\\
+To remove low quality reads use --quality parameter:
+\begin{verbatim}
+--quality <cutoff>
+\end{verbatim}
+\paragraph{Mapping:}
+The trimmed read are mapped to respective genome using \prog{bowtie2}. Since the minimum distance between two Tn5 binding sites are about 38bp, only fragment size greater than this is kept.
+\begin{verbatim}
+bowtie2  -X 2000 --fr --no-discordant --no-mixed \
+--minins 38  -x <bowtie-index> -1 <read1_trimmed.fastq> \
+-2 <read2_trimmed.fastq> -S <read_mapped.sam>
+\end{verbatim}
+\paragraph{Create sorted bam file:} The output of mapping is in sam format, which is human readable. The downside of sam format is the huge file size. We can use samtools to convert samfile into smaller and compressed format called bam.
+\begin{verbatim}
+samtools view -bS read_mapped.sam \
+ |samtools sort - read_mapped.sorted.bam
+\end{verbatim}
+\section{Qualtiy controls}
+\paragraph{Remove unwanted chromosome:} Here we keep only those reads that is mapped to standard chromosomes. Reads mapped to mitochondrial DNA are also filtered out.
+\begin{verbatim}
+samtools view -h read_mapped.sorted.bam \
+|awk 'substr($0,1,1) == "@"|| (length($3)<=5 && \
+$3!="chrM" && $3 != "*"){{print $0}}' \
+|samtools view -bS - > read_mapped.sorted.chr.bam
+\end{verbatim}
+\paragraph{Remove duplicate reads:} PCR duplicated reads are removed using Picard Tools \prog{MarkDuplicates}
+\begin{verbatim}
+java -Xmx2g -jar MarkDuplicates.jar \
+INPUT = read_mapped.sorted.chr.bam \
+METRICS_FILE=read_mapped.markdup.metrics" \
+OUTPUT=read_mapped.sorted.chr.nodup.bam" \
+REMOVE_DUPLICATES=true \
+ASSUME_SORTED=true
+\end{verbatim}
+\paragraph{Remove low quality mapped reads:}
+\begin{verbatim}
+samtools view -b -h -q 30 read_mapped.sorted.chr.nodup.bam \
+> read_mapped.sorted.chr.nodup.filt.bam
+
+\end{verbatim}
+\end{document}
