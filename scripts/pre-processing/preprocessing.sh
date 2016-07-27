@@ -81,11 +81,10 @@ samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"
 ## Insert size and alignment stats ##
 printf "\nInsert size\n"
 samtools view -f66 bams/$INPUT_FILE".filt.sorted.chr.nodup.bam" |cut -f 9|sed 's/^-//' > $INPUT_FILE"_insertsize.txt"
-Rscript getinsertsize.R $INPUT_FILE"_insertsize.txt"
+Rscript plotinsertsize.R $INPUT_FILE"_insertsize.txt"
 mv $INPUT_FILE"_insertsize.txt"  "hist_"$INPUT_FILE"_insertsize.txt.png" "hist_"$INPUT_FILE"_insertsize.txt_density.png" quality/
 
 ## mapped stats ##
-samtools index bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam.bai"
 samtools flagstat  bams/$INPUT_FILE".filt.sorted.chr.nodup.bam"  \
 	quality/$INPUT_FILE".filt.sorted.chr.nodup.bam.flagstat.qc"
 
