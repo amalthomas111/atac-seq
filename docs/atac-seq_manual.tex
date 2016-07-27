@@ -31,12 +31,12 @@ Users are assumed to have prior experience with UNIX/Linux environment and commo
 \section{Pre-processing}
 
 \subsection{Quality checks}
-\subsubsection{Input files:} The input to our pipeline is raw next generation sequencing data in the FASTQ format. The raw files from Sequence Read Archive (SRA), have to be decompressed and properly split to generate the right FASTQ files.
-\subsubsection{Quality check:} \prog{FastQC} provides an easy way to analyse the quality of raw sequencing data. This will give us a hint whether our data has any experimental error. One can employ the tool by the following command:
+\subsubsection{Input files} The input to our pipeline is raw next generation sequencing data in the FASTQ format. The raw files from Sequence Read Archive (SRA), have to be decompressed and properly split to generate the right FASTQ files.
+\subsubsection{Quality check} \prog{FastQC} provides an easy way to analyse the quality of raw sequencing data. This will give us a hint whether our data has any experimental error. One can employ the tool by the following command:
 \begin{verbatim}
 fastqc <read1.fastq> <read2.fastq> -o <outputdir>
 \end{verbatim}
-\subsubsection{Removing adapters:} Sequencing adapters can be easily removed using  \prog{trimgalore} program. Typical command for paired end reads is:\\
+\subsubsection{Remove adapters} Sequencing adapters can be easily removed using  \prog{trimgalore} program. Typical command for paired end reads is:\\
 \begin{verbatim}
 trim_galore --paired   <read1.fastq>  <read2.fastq>  \
   --output_dir  <output directory>
@@ -47,7 +47,7 @@ To remove low quality reads use --quality parameter:
 --quality <cutoff>
 \end{verbatim}
 \subsection{Mapping reads}
-\subsubsection{Alignment:}
+\subsubsection{Alignment}
 The trimmed read are mapped to respective genome using \prog{bowtie2}. Since the minimum distance between two Tn5 binding sites are about 38bp, only fragment size greater than this is kept.
 \begin{verbatim}
 bowtie2  -X 2000 --fr --no-discordant --no-mixed \
@@ -60,14 +60,14 @@ samtools view -bS read_mapped.sam \
  |samtools sort - read_mapped.sorted.bam
 \end{verbatim}
 \subsection{Quality controls}
-\subsubsection{Filter unwanted reads:} Here we keep only those reads that is mapped to standard chromosomes. Reads mapped to mitochondrial DNA are also filtered out.
+\subsubsection{Filter unwanted reads} Here we keep only those reads that is mapped to standard chromosomes. Reads mapped to mitochondrial DNA are also filtered out.
 \begin{verbatim}
 samtools view -h read_mapped.sorted.bam \
 |awk 'substr($0,1,1) == "@"|| (length($3)<=5 && \
 $3!="chrM" && $3 != "*"){{print $0}}' \
 |samtools view -bS - > read_mapped.sorted.chr.bam
 \end{verbatim}
-\subsubsection{Remove duplicate reads:} PCR duplicated reads are removed using Picard Tools \prog{MarkDuplicates}
+\subsubsection{Remove duplicate reads} PCR duplicated reads are removed using Picard Tools \prog{MarkDuplicates}
 \begin{verbatim}
 java -Xmx2g -jar MarkDuplicates.jar \
 INPUT = read_mapped.sorted.chr.bam \
@@ -76,7 +76,7 @@ OUTPUT=read_mapped.sorted.chr.nodup.bam" \
 REMOVE_DUPLICATES=true \
 ASSUME_SORTED=true
 \end{verbatim}
-\subsubsection{Remove low quality reads:} Reads with Phred quality scores less than 30 are filtered out using the command:
+\subsubsection{Remove low quality reads} Reads with Phred quality scores less than 30 are filtered out using the command:
 \begin{verbatim}
 samtools view -b -h -q 30 read_mapped.sorted.chr.nodup.bam \
 > read_mapped.sorted.chr.nodup.filt.bam
@@ -86,7 +86,7 @@ The output bam file can be indexed using:
 samtools index read_mapped.sorted.chr.nodup.filt.bam
 \end{verbatim} 
 \subsection{Peak Calling}
-\subsubsection{Shift cordinates:} Inorder to represent the center of Tn5 binding site we shift the reads aligning to the postive strand by +4 bp, and those to the negative strand by −5 bp. We can do this easily by converting the bam file to bed format and then shift the cordinates.
+\subsubsection{Shift cordinates} Inorder to represent the center of Tn5 binding site we shift the reads aligning to the postive strand by +4 bp, and those to the negative strand by −5 bp. We can do this easily by converting the bam file to bed format and then shift the cordinates.
 \begin{verbatim}
 bamToBed -i read_mapped.sorted.chr.nodup.filt.bam > temp.bed
 
@@ -100,7 +100,7 @@ else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} \
 
 rm temp.bed .insert.temp
 \end{verbatim}
-\subsubsection{MACS2 peak calling:} Now we are ready to perform peak calling. For this we will use  peak caller called MACS2. The shifted bed file is provided us the input for the program.
+\subsubsection{MACS2 peak calling} Now we are ready to perform peak calling. For this we will use  peak caller called MACS2. The shifted bed file is provided us the input for the program.
 \begin{verbatim}
 macs2 callpeak --gsize hs \
          -f BED \
@@ -134,7 +134,7 @@ intersectBed -v -a read_mapped_peaks.narrowPeak \
 -b hg19_consensusBlacklist.bed > read_mapped_peaks.narrowPeak.blacklistcleared
 \end{verbatim}
 \subsection{Visualization}
-\subsubsection{bigBed \& bigWig file:} \prog{bedToBigBed} can be downloaded from the ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site}. The following command creates bigBed file of the identified peaks:
+\subsubsection{bigBed \& bigWig file} \prog{bedToBigBed} can be downloaded from the ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site}. The following command creates bigBed file of the identified peaks:
 \begin{verbatim}
 awk '{{OFS="\t"; print $1, $2, $3}}' \
 read_mapped_peaks.narrowPeak.blacklistcleared | sort -k 1,1 -k 2,2n \
@@ -167,7 +167,7 @@ Find the number of reads falling into Tn5 accessible regions using:
 bedtools genomecov -i read_mapped.15bpshifted.bed  \
 -g hg19.sizes.txt -bg -scale $scaling_factor > read.bedgraph
 \end{verbatim}
-\subsubsection{Create bigWig file}: The \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site} can be used to create bigWig file from the generated bigwig file.
+\textbf{Create bigWig file:} The \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site} can be used to create bigWig file from the generated bigwig file.
 \begin{verbatim}
 bedGraphToBigWig read.bedgraph hg19.sizes.txt read.bw
 \end{verbatim}
