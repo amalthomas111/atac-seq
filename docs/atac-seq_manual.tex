@@ -2,7 +2,7 @@
 
 \usepackage{times,fullpage,graphicx,amsmath, subfigure}
 \usepackage[pdfborder={0 0 0},colorlinks]{hyperref}
-\hypersetup{citecolor=DeepPink4, linkcolor=DarkRed, urlcolor= blue}
+\hypersetup{citecolor=black, linkcolor=blue, urlcolor= blue}
 \title{\bf atac-seq pipeline} 
 \author{Amal Thomas}
 
@@ -18,8 +18,8 @@
 A computational pipeline for processing and analyzing atac-seq data
 \end{center} 
 
-%%\tableofcontents
-%%\newpage
+\tableofcontents
+\newpage
 \section{Overview}
 In our pipeline, we provide a handy work flow to process the atac-seq data and identify those regions with differential chromatin profile. The pipeline has mainly two parts:
 \begin{itemize}
@@ -30,13 +30,13 @@ Users are assumed to have prior experience with UNIX/Linux environment and commo
 
 \section{Pre-processing}
 
-\subsection{Mapping reads}
-\paragraph{Input files:} The input to our pipeline is raw next generation sequencing data in the FASTQ format. The raw files from Sequence Read Archive (SRA), have to be decompressed and properly split to generate the right FASTQ files.
-\paragraph{Quality check:} \prog{FastQC} provides an easy way to analyse the quality of raw sequencing data. This will give us a hint whether our data has any experimental error. One can employ the tool by the following command:
+\subsection{Quality checks}
+\subsubsection{Input files:} The input to our pipeline is raw next generation sequencing data in the FASTQ format. The raw files from Sequence Read Archive (SRA), have to be decompressed and properly split to generate the right FASTQ files.
+\subsubsection{Quality check:} \prog{FastQC} provides an easy way to analyse the quality of raw sequencing data. This will give us a hint whether our data has any experimental error. One can employ the tool by the following command:
 \begin{verbatim}
 fastqc <read1.fastq> <read2.fastq> -o <outputdir>
 \end{verbatim}
-\paragraph{Removing adapters:} Sequencing adapters can be easily removed using  \prog{trimgalore} program. Typical command for paired end reads is:\\
+\subsubsection{Removing adapters:} Sequencing adapters can be easily removed using  \prog{trimgalore} program. Typical command for paired end reads is:\\
 \begin{verbatim}
 trim_galore --paired   <read1.fastq>  <read2.fastq>  \
   --output_dir  <output directory>
@@ -46,7 +46,8 @@ To remove low quality reads use --quality parameter:
 \begin{verbatim}
 --quality <cutoff>
 \end{verbatim}
-\paragraph{Mapping:}
+\subsection{Mapping reads}
+\subsubsection{Alignment:}
 The trimmed read are mapped to respective genome using \prog{bowtie2}. Since the minimum distance between two Tn5 binding sites are about 38bp, only fragment size greater than this is kept.
 \begin{verbatim}
 bowtie2  -X 2000 --fr --no-discordant --no-mixed \
@@ -58,15 +59,15 @@ bowtie2  -X 2000 --fr --no-discordant --no-mixed \
 samtools view -bS read_mapped.sam \
  |samtools sort - read_mapped.sorted.bam
 \end{verbatim}
-\section{Qualtiy controls}
-\paragraph{Remove unwanted chromosome:} Here we keep only those reads that is mapped to standard chromosomes. Reads mapped to mitochondrial DNA are also filtered out.
+\subsection{Quality controls}
+\subsubsection{Filter unwanted reads:} Here we keep only those reads that is mapped to standard chromosomes. Reads mapped to mitochondrial DNA are also filtered out.
 \begin{verbatim}
 samtools view -h read_mapped.sorted.bam \
 |awk 'substr($0,1,1) == "@"|| (length($3)<=5 && \
 $3!="chrM" && $3 != "*"){{print $0}}' \
 |samtools view -bS - > read_mapped.sorted.chr.bam
 \end{verbatim}
-\paragraph{Remove duplicate reads:} PCR duplicated reads are removed using Picard Tools \prog{MarkDuplicates}
+\subsubsection{Remove duplicate reads:} PCR duplicated reads are removed using Picard Tools \prog{MarkDuplicates}
 \begin{verbatim}
 java -Xmx2g -jar MarkDuplicates.jar \
 INPUT = read_mapped.sorted.chr.bam \
@@ -75,7 +76,7 @@ OUTPUT=read_mapped.sorted.chr.nodup.bam" \
 REMOVE_DUPLICATES=true \
 ASSUME_SORTED=true
 \end{verbatim}
-\paragraph{Remove low quality mapped reads:} Reads with Phred quality scores less than 30 are filtered out using the command:
+\subsubsection{Remove low quality reads:} Reads with Phred quality scores less than 30 are filtered out using the command:
 \begin{verbatim}
 samtools view -b -h -q 30 read_mapped.sorted.chr.nodup.bam \
 > read_mapped.sorted.chr.nodup.filt.bam
@@ -84,26 +85,26 @@ The output bam file can be indexed using:
 \begin{verbatim}
 samtools index read_mapped.sorted.chr.nodup.filt.bam
 \end{verbatim} 
-\section{Peak Calling} For each read to represent the center of Tn5 binding site we shift the + strands by +4 bp, and all reads aligning to the – strand by −5 bp. Here for convinience we convert the bam file to bed format and do the shifting of cordinates.
+\subsection{Peak Calling}
+\subsubsection{Shift cordinates:} Inorder to represent the center of Tn5 binding site we shift the reads aligning to the postive strand by +4 bp, and those to the negative strand by −5 bp. We can do this easily by converting the bam file to bed format and then shift the cordinates.
 \begin{verbatim}
 bamToBed -i read_mapped.sorted.chr.nodup.filt.bam > temp.bed
 
 samtools view  read_mapped.sorted.chr.nodup.filt.bam \
 | awk 'BEGIN{OFS="\t"}{print $1,$9}' > insert.temp
-paste temp.bed insert.temp | \
-awk 'BEGIN{OFS="\t"}{split($4,name,"/");if(name[1]== $7 && $6 == "+" )\
-{print $1,$2+4,$3,$4,$8,$6}  \
+
+paste temp.bed insert.temp | awk 'BEGIN{OFS="\t"}{split($4,name,"/"); \
+if(name[1]== $7 && $6 == "+" ) {print $1,$2+4,$3,$4,$8,$6}  \
 else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} \
 > read_mapped.sorted.chr.nodup.filt.shift.bed
 
-rm $INPUT_FILE".temp.bed" $INPUT_FILE".insert.temp"
+rm temp.bed .insert.temp
 \end{verbatim}
-Now we are ready to perform peak calling. For this we will use  peak caller called MACS2. The shifted bed file is provided us the input for the program.
+\subsubsection{MACS2 peak calling:} Now we are ready to perform peak calling. For this we will use  peak caller called MACS2. The shifted bed file is provided us the input for the program.
 \begin{verbatim}
 macs2 callpeak --gsize hs \
-	      -f BED \
+         -f BED \
          --treatment read_mapped.filt.sorted.chr.nodup.shift.bed  \
-         --outdir peaks/ \
          --name read_mapped \
          --keep-dup all \
          --call-summits \
@@ -111,13 +112,13 @@ macs2 callpeak --gsize hs \
          --nomodel --nolambda \
          --verbose 3
 \end{verbatim}
-The --shift -100 parameter will move the reads toward 3' to 5' direction and --extsize parameter will extend the 3' end to make 200 bp reads. This will ensure that center of each reads correspond to the original Tn5 cutting sites. For {\em e.g.}
+The --shift parameter  will shift the reads in 5' to 3' direction and --extsize parameter will extend the 3' end to make 200 bp reads. This will ensure that center of each reads correspond to the original Tn5 cutting sites. For {\em e.g.}\\
 \textbf{Original reads:}
 \begin{verse}
 chr1\tab 500\tab 550\tab read1 \tab .\tab +\\
 chr1\tab 700\tab 750\tab read2 \tab .\tab-
 \end{verse}
-\textbf{Applying --shift -100:}
+\textbf{Applying --shift -100:} negative 100 will shift in 3' to 5' direction
 \begin{verse}
 chr1\tab 400\tab 450\tab read1\tab .\tab +\\
 chr1\tab 800\tab 850\tab read2\tab .\tab -
@@ -127,6 +128,49 @@ chr1\tab 800\tab 850\tab read2\tab .\tab -
 chr1\tab 400\tab 600\tab read1\tab .\tab +\\
 chr1\tab 650\tab 850\tab read2\tab .\tab -
 \end{verse}
-\paragraph{Remove blacklisted regions:} We have to remove some problematic regions (microsatellites, centromeres, telomeres etc.) from the identified peaks. Encode blacklisted regions can be downloaded from this \href{https://sites.google.com/site/anshulkundaje/projects/blacklists}{website}.
-\section{Create track hub }
+\paragraph{Remove blacklisted regions:} We have to remove some problematic regions (microsatellites, centromeres, telomeres etc.) from the identified peaks. Encode blacklisted regions can be downloaded from this \href{https://sites.google.com/site/anshulkundaje/projects/blacklists}{link}.
+\begin{verbatim}
+intersectBed -v -a read_mapped_peaks.narrowPeak \
+-b hg19_consensusBlacklist.bed > read_mapped_peaks.narrowPeak.blacklistcleared
+\end{verbatim}
+\subsection{Visualization}
+\subsubsection{bigBed \& bigWig file:} \prog{bedToBigBed} can be downloaded from the ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site}. The following command creates bigBed file of the identified peaks:
+\begin{verbatim}
+awk '{{OFS="\t"; print $1, $2, $3}}' \
+read_mapped_peaks.narrowPeak.blacklistcleared | sort -k 1,1 -k 2,2n \
+> temp.track
+
+bedToBigBed temp.track  hg19.sizes.txt read.bb
+rm temp.track
+\end{verbatim}
+Here hg19.sizes is a file with sizes of the chromosomes.\\
+\textbf{bigBed file:} First we create a bed file with read size of one at Tn5 cut site.
+\begin{verbatim}
+cat read_mapped.filt.sorted.chr.nodup.shift.bed | \
+awk 'BEGIN{OFS="\t"}{if($6 == "-") $2=$3-1; \
+print $1, $2, $2+1, $4, $5, $6}' \
+| sort -k 1,1 -k2,2n >  read_mapped.filt.sorted.chr.nodup.shift.center.bed
+\end{verbatim}
+Then we extend reads to both sides of the cut site by 15bp. This region represents the accessible sites for Tn5 binding.
+\begin{verbatim}
+bedtools slop -i read_mapped.filt.sorted.chr.nodup.shift.center.bed \
+-g hg19.sizes -b 15 > read_mapped.15bpshifted.bed
+\end{verbatim}
+Find the librarysize and normalising factor using:
+\begin{verbatim}
+librarySize=$(samtools view -c -F 4 read_mapped.sorted.chr.nodup.filt.bam)
+expr="1000000 / $librarySize"
+scaling_factor=$(echo $expr | bc -l)
+\end{verbatim}
+Find the number of reads falling into Tn5 accessible regions using:
+\begin{verbatim}
+bedtools genomecov -i read_mapped.15bpshifted.bed  \
+-g hg19.sizes.txt -bg -scale $scaling_factor > read.bedgraph
+\end{verbatim}
+\subsubsection{Create bigWig file}: The \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site} can be used to create bigWig file from the generated bigwig file.
+\begin{verbatim}
+bedGraphToBigWig read.bedgraph hg19.sizes.txt read.bw
+\end{verbatim}
+\subsection{Create tracks}
+\section{Post-processing}
 \end{document}
