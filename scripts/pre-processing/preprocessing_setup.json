@@ -9,18 +9,32 @@
 		"tracks" : "tracks",
 		"quality" : "quality"
 	},
+	"files":
+	{
+		"hg19.sizes.txt" : "/home/rcf-40/amalthom/panases_soft/hg19.sizes",
+		"blacklist_regions" : "/home/rcf-40/amalthom/panases_soft/hg19_blacklist/hg19_consensusBlacklist.bed"
+	},
 
-	"input_filename" : "68H",
-	"hg19.sizes.txt" : "/home/rcf-40/amalthom/panases_soft/hg19.sizes",
-	"macs_python_env" : "PATH=/home/rcf-40/amalthom/panases_soft/anaconda3/envs/py2.7/bin/:$PATH" ,
-	"blacklist_regions" : "/home/rcf-40/amalthom/panases_soft/hg19_blacklist/hg19_consensusBlacklist.bed",
-
+	"env":
+	{
+		"macs_python_env" : "PATH=/home/rcf-40/amalthom/panases_soft/anaconda3/envs/py2.7/bin/:$PATH"
+	},
+	
 	"programs":
 	{
+		"trim_galore" : "trim_galore",
+		"sequencing_type": "--nextera",
+		"fastqc" : "fastqc",
+		"bowtie2" : "bowtie2",
 		"bowtie_index" : "/home/rcf-40/amalthom/staging_work/2.genome/bowti2_index/hg19/hg19",
-		"library_complextty" : "/home/rcf-40/amalthom/panases_soft/picard_1.122/EstimateLibraryComplexity.jar",
+		"samtools" : "samtools",
+		"bedtools" : "bedtools",
+		"qualimap" : "$qualimap",
+		"bamtobed" : "bamToBed",
+		"library_complexity" : "/home/rcf-40/amalthom/panases_soft/picard_1.122/EstimateLibraryComplexity.jar",
 		"markduplicates" : "/home/rcf-40/amalthom/panases_soft/picard_1.122/MarkDuplicates.jar",
+		"macs2" : "macs2",
 		"bedToBigBed" : "/home/rcf-40/amalthom/panases_soft/bedToBigBed",
-		"bedGraphToBigwig" : "~/panases_soft/bedGraphToBigWig"
+		"bedGraphToBigWig" : "~/panases_soft/bedGraphToBigWig"
 	}
 }

@@ -104,7 +104,7 @@ rm temp.bed .insert.temp
 \begin{verbatim}
 macs2 callpeak --gsize hs \
          -f BED \
-         --treatment read_mapped.filt.sorted.chr.nodup.shift.bed  \
+         --treatment read_mapped.sorted.chr.nodup.filt.shift.bed  \
          --name read_mapped \
          --keep-dup all \
          --call-summits \
@@ -134,7 +134,8 @@ intersectBed -v -a read_mapped_peaks.narrowPeak \
 -b hg19_consensusBlacklist.bed > read_mapped_peaks.narrowPeak.blacklistcleared
 \end{verbatim}
 \subsection{Visualization}
-\subsubsection{bigBed \& bigWig file} \prog{bedToBigBed} can be downloaded from the ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site}. The following command creates bigBed file of the identified peaks:
+\subsubsection{bigBed \& bigWig file} 
+\textbf{bigBed file:} \prog{bedToBigBed} can be downloaded from the ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site}. The following command creates bigBed file of the identified peaks:
 \begin{verbatim}
 awk '{{OFS="\t"; print $1, $2, $3}}' \
 read_mapped_peaks.narrowPeak.blacklistcleared | sort -k 1,1 -k 2,2n \
@@ -144,14 +145,14 @@ bedToBigBed temp.track  hg19.sizes.txt read.bb
 rm temp.track
 \end{verbatim}
 Here hg19.sizes is a file with sizes of the chromosomes.\\
-\textbf{bigBed file:} First we create a bed file with read size of one at Tn5 cut site.
+\textbf{bigWig file:} First we create a bed file with read size of one at Tn5 cut site.
 \begin{verbatim}
 cat read_mapped.filt.sorted.chr.nodup.shift.bed | \
 awk 'BEGIN{OFS="\t"}{if($6 == "-") $2=$3-1; \
 print $1, $2, $2+1, $4, $5, $6}' \
 | sort -k 1,1 -k2,2n >  read_mapped.filt.sorted.chr.nodup.shift.center.bed
 \end{verbatim}
-Then we extend reads to both sides of the cut site by 15bp. This region represents the accessible sites for Tn5 binding.
+Then we extend reads to both sides of the cut site center by 15bp. This region represents the accessible sites for Tn5 binding.
 \begin{verbatim}
 bedtools slop -i read_mapped.filt.sorted.chr.nodup.shift.center.bed \
 -g hg19.sizes -b 15 > read_mapped.15bpshifted.bed
@@ -167,7 +168,7 @@ Find the number of reads falling into Tn5 accessible regions using:
 bedtools genomecov -i read_mapped.15bpshifted.bed  \
 -g hg19.sizes.txt -bg -scale $scaling_factor > read.bedgraph
 \end{verbatim}
-\textbf{Create bigWig file:} The \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site} can be used to create bigWig file from the generated bigwig file.
+Finally the \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.ucsc.edu/admin/exe/}{site} can be used to create bigWig file from the generated bigwig file.
 \begin{verbatim}
 bedGraphToBigWig read.bedgraph hg19.sizes.txt read.bw
 \end{verbatim}
