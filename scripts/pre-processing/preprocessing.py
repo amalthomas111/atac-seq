@@ -26,12 +26,14 @@ if not os.path.exists(sys.argv[1]):
 INPUT = sys.argv[2].strip()
 def check_directory(param):
 	#check input file and folders
-	if not os.path.isdir(param["folders"]["rawreads"]) :
+	sourceDir = os.path.abspath(param["folders"]["rawreads"])
+	if not os.path.isdir(sourceDir) :
 		print("rawreads directory not found\nExiting!!!!\n")
 		exit(0)
-	if not os.path.exists(param["folders"]["rawreads"]+"/"+sys.argv[2]+"_1.fastq") or \
-	not os.path.exists(param["folders"]["rawreads"]+"/"+sys.argv[2]+"_2.fastq") :
-		print("Input file not found\nExiting!! \n")
+	fastq1 = os.path.join(sourceDir, INPUT + "_1.fastq")
+	fastq2 = os.path.join(sourceDir, INPUT + "_2.fastq")
+	if not os.path.exists(fastq1) or not os.path.exists(fastq2) :
+		print("Input file(s) not found\nExiting!! \n")
 		exit(0)
 	if not os.path.exists(param["folders"]["reads"]):
 		os.makedirs(param["folders"]["reads"])
@@ -48,30 +50,39 @@ def check_directory(param):
 
 def quality_checks(param):
 	#trim adaptors
-	trim_adaptors = param["programs"]["trim_galore"]+" --paired --nextera "+ \
-	param["folders"]["rawreads"]+"/"+ INPUT +"_1.fastq "+ \
-	param["folders"]["rawreads"]+"/"+ INPUT +"_2.fastq "+ \
-	"--output_dir "+ param["folders"]["reads"]
-	
+	sourceDir = os.path.abspath(param["folders"]["rawreads"])
+	trim = {
+	'program' :  param["programs"]["trim_galore"],
+	'fastq1' : os.path.join(sourceDir, INPUT + "_1.fastq"),
+	'fastq2' : os.path.join(sourceDir, INPUT + "_2.fastq"),
+	'trim_parameter' : "--paired --nextera",
+	'destinationDir' : os.path.abspath(param["folders"]["reads"])
+	}
+	trimCmd = "{program} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim)
+	print(trimCmd)
+	#os.system(trimCmd)
+
 	#fastqc quality analyzis
-	fastqc = param["programs"]["fastqc"]+ " " +\
-	param["folders"]["reads"]+ "/" + INPUT + "_1_val_1.fq " +\
-	param["folders"]["reads"]+ "/" + INPUT + "_2_val_2.fq -o "+ \
-	param["folders"]["quality"]
+	sourceDir = os.path.abspath(param["folders"]["reads"])
+	fastqc = {
+	'program' :  param["programs"]["fastqc"],
+	'trimmed_file1' : os.path.join(sourceDir, INPUT + "_1_val_1.fq"),
+	'trimmed_file2' : os.path.join(sourceDir, INPUT + "_2_val_2.fq"),
+	'destinationDir' : param["folders"]["quality"]
+	}
+	fastqcCmd = "{program} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc)
+	print(fastqcCmd)
+	#os.system(fastqcCmd)
 	
 	#renaming files
-	rename1 = "mv "+param["folders"]["reads"]+ "/" + INPUT + "_1_val_1.fq "+\
-	param["folders"]["reads"]+ "/" + INPUT +"_1_trimmed.fastq"
-	rename2 = "mv "+param["folders"]["reads"]+ "/" + INPUT + "_2_val_2.fq "+\
-	param["folders"]["reads"]+ "/" + INPUT +"_2_trimmed.fastq"
-	
-	print(trim_adaptors,fastqc,rename1,rename2,sep="\n")
+	file1 = os.path.join(sourceDir, INPUT + "_1_val_1.fq")
+	file2 = os.path.join(sourceDir, INPUT + "_2_val_2.fq")
+	file1_new = os.path.join(sourceDir, INPUT + "_1_trimmed.fastq")
+	file2_new = os.path.join(sourceDir, INPUT +"_2_trimmed.fastq")
 
-	os.system(trim_adaptors)
-	os.system(fastqc)
-	os.system(rename1)
-	os.system(rename2)
-
+	#os.rename(file1, file1_new)
+	#os.rename(file2, file2_new)
+	#exit(0)
 def mapping(param):
 	#bowtie alignment
 	bowtie = param["programs"]["bowtie2"]+" -p 8 -X 2000 --fr --no-discordant --no-mixed --minins 38 "+\
