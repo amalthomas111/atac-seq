@@ -100,7 +100,7 @@ else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} \
 
 rm temp.bed .insert.temp
 \end{verbatim}
-\subsubsection{MACS2 peak calling} Now we are ready to perform peak calling. For this we will use  peak caller called MACS2. The shifted bed file is provided us the input for the program.
+\subsubsection{MACS2 peak calling} Now we are ready to perform peak calling. We will use  peak caller called MACS2. The shifted bed file is provided as the input for the program.
 \begin{verbatim}
 macs2 callpeak --gsize hs \
          -f BED \
