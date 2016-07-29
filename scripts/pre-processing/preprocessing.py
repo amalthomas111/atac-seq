@@ -99,77 +99,86 @@ def mapping(param):
 	'outputbam' : os.path.join(destDir, INPUT + ".sorted")
 	}
 	bowtieCMD = "{bowtie2} {mapping_parameters} --met-file {metric_file} -x {bowtie_index} \
-	 -1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort - {outputbam}".format(**bowtie)
+	-1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort - {outputbam}".format(**bowtie)
 	 
 	print(bowtieCMD)
 	#os.system(bowtieCMD)
 
-def remove_junk_chromosome(args):
-	bamfile = os.popen("samtools view -h "+ args['bamfile'])
-	tempsam = open("tempsam_"+INPUT,'w')
+def remove_junk_chromosome(param):
+	#function to remove unwanted chromosomes
+	sourceDir = os.path.abspath(param["folders"]["bams"])
+	remove_chroms = {
+	'sortedbam' :  os.path.join(sourceDir, INPUT + ".sorted.bam"),
+	'outputbam': os.path.join(sourceDir, INPUT + ".sorted.chr.bam"),
+	'tempsam' : "tempsam_"+ INPUT,
+	'samtools' : param["programs"]["samtools"]
+	}
+	bamfile = os.popen("{samtools} view -h {sortedbam}".format(**remove_chroms))
+	tempsam = open("{tempsam}".format(**remove_chroms),'w')
 	for line in bamfile:
 		if(line[0] == "@"):
 			tempsam.write(line)
 			continue
 		elements = line.split('\t')
-		if(len(elements[2] <=5 and element[2] !+ "chrM" and element[2] != "*"):
+		if(len(elements[2]) <=5 and elements[2] != "chrM" and elements[2] != "*"):
 			tempsam.write(line)
-	os.system("samtools view -bS tempsam_"+INPUT+" > "selected_"+sys.argv[2])
-	
+	tempsam.close()
+	#os.system("{samtools} view -bS {tempsam} > {outputbam}".format(**remove_chroms))
+	#os.remove("{tempsam}".format(**remove_chroms))
 def quality_controls(param):
 	#filter unwanted reads
-	sourceDir = os.path.abspath(param["folders"]["bams"])
-	remove_chroms = {
-	'bamfile' :  os.path.join(sourceDir, INPUT + ".sorted.bam",
-	'outputbam': os.path.join(sourceDir, INPUT + ".sorted.chr.bam",
-	'samtools' : param["programs"]["samtools"]
-	}
-	remove_junk_chrom(remove_chroms)
-	"samtools view -h "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.bam |"+\
-	'''awk 'substr($0,1,1) == "@"|| (length($3)<=5 && $3!="chrM" && $3 != "*")'''+\
-	'''{{print $0}}'| '''+ param["programs"]["samtools"]+ ''' view -bS - > ''' +\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.bam "
-	
+	#remove_junk_chromosome(param)
+
 	#remove duplicate reads
-	remove_duplicate = "java -Xmx2g -jar "+param["programs"]["markduplicates"]+" "+\
-	"INPUT="+param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.bam "+\
-	"METRICS_FILE="+param["folders"]["bams"]+"/" + INPUT + ".markdup.metrics " +\
-	"OUTPUT="+param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.bam " +\
-	"REMOVE_DUPLICATES=true "+\
-	"ASSUME_SORTED=true "
+	bamDir = os.path.abspath(param["folders"]["bams"])
+	duplicates = {
 	
-	#index bam file
-	index_bam = param["programs"]["samtools"]+" index "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.bam "
+	"markduplicate" : param["programs"]["markduplicates"],
+	"inputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.bam"),
+	"metricsfile" : os.path.join(bamDir, INPUT + ".markdup.metrics "),
+	"outputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.nodup.bam"),
+	}
+	remove_duplicate_CMD = "java -Xmx2g -jar {markduplicate} INPUT={inputbam} \
+	METRICS_FILE={metricsfile} OUTPUT={outputbam} REMOVE_DUPLICATES=true \
+	ASSUME_SORTED=true".format(**duplicates)
+	print(remove_duplicate_CMD)
+	#os.system(remove_duplicate_CMD)
 	
 	#mark duplicate reads
-	mark_duplicate = "java -Xmx2g -jar "+param["programs"]["markduplicates"]+" "+\
-	"INPUT="+param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.bam "+\
-	"METRICS_FILE="+param["folders"]["bams"]+"/" + INPUT + ".markdup.metrics " +\
-	"OUTPUT="+param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.markdup.bam " +\
-	"REMOVE_DUPLICATES=false "+\
-	"ASSUME_SORTED=true "
+	mark_duplicate_CMD = "java -Xmx2g -jar {markduplicate} INPUT={inputbam} \
+	METRICS_FILE={metricsfile} OUTPUT={outputbam} REMOVE_DUPLICATES=false \
+	ASSUME_SORTED=true".format(**duplicates)
+	print(mark_duplicate_CMD)
+	#os.system(mark_duplicate_CMD)
 	
 	#remove low quality reads
-	remove_lowquality = param["programs"]["samtools"]+"  view -b -h -q 30 "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.bam  > " +\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.filt.bam"
+	filter_param = {
+	"samtools" : param["programs"]["samtools"],
+	"inputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.nodup.bam"),
+	"outputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam")
+	}
+	remove_lowqual_CMD ="{samtools}  view -b -h -q 30 {inputbam} > {outputbam}".format(**filter_param)
+	print(remove_lowqual_CMD)
+	#os.system(remove_lowqual_CMD)
+
+	#index bam file
+	index_bam_CMD = "{samtools} index {outputbam}".format(**filter_param)
+	print(index_bam_CMD)
+	#os.system(index_bam_CMD)
 	
 	#qualimap stats
-	qualimap = param["programs"]["qualimap"]+ " bamqc -bam "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.bam "+\
-	"--outdir "+param["folders"]["quality"]+" --outfile "+\
-	INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf"
+	qualDir = os.path.abspath(param["folders"]["quality"])
+	qualimap_param = {
+	"qualimap" : param["programs"]["qualimap"],
+	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"pdfoutput" : os.path.join(qualDir, INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf")
+	}
+	qualimap = "{qualimap} bamqc -bam {inputbam} --outfile {pdfoutput}".format(**qualimap_param)
 	
-	print(remove_junk_chrom,index_bam,remove_duplicate,mark_duplicate,remove_lowquality,qualimap,sep="\n")
-	
-	os.system(remove_junk_chrom)
-	os.system(index_bam)
-	os.system(remove_duplicate)
-	os.system(mark_duplicate)
-	os.system(remove_lowquality)
-	os.system(qualimap)
+	print(qualimap)
+	#os.system(qualimap)
+	exit(0)
+
 def peak_calling(param):
 	#shift cordinates
 	temp_bed = param["programs"]["bamtobed"]+ " -i "+ \
