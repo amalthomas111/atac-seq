@@ -52,51 +52,80 @@ def quality_checks(param):
 	#trim adaptors
 	sourceDir = os.path.abspath(param["folders"]["rawreads"])
 	trim = {
-	'program' :  param["programs"]["trim_galore"],
+	'trim_galore' :  param["programs"]["trim_galore"],
 	'fastq1' : os.path.join(sourceDir, INPUT + "_1.fastq"),
 	'fastq2' : os.path.join(sourceDir, INPUT + "_2.fastq"),
 	'trim_parameter' : "--paired --nextera",
 	'destinationDir' : os.path.abspath(param["folders"]["reads"])
 	}
-	trimCmd = "{program} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim)
-	print(trimCmd)
-	#os.system(trimCmd)
+	trimCMD = "{trim_galore} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim)
+	print(trimCMD)
+	#os.system(trimCMD)
 
 	#fastqc quality analyzis
 	sourceDir = os.path.abspath(param["folders"]["reads"])
-	fastqc = {
-	'program' :  param["programs"]["fastqc"],
+	fastqc_quality = {
+	'fastqc' :  param["programs"]["fastqc"],
 	'trimmed_file1' : os.path.join(sourceDir, INPUT + "_1_val_1.fq"),
 	'trimmed_file2' : os.path.join(sourceDir, INPUT + "_2_val_2.fq"),
 	'destinationDir' : param["folders"]["quality"]
 	}
-	fastqcCmd = "{program} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc)
-	print(fastqcCmd)
-	#os.system(fastqcCmd)
+	fastqcCMD = "{fastqc} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc_quality)
+	print(fastqcCMD)
+	#os.system(fastqcCMD)
 	
 	#renaming files
 	file1 = os.path.join(sourceDir, INPUT + "_1_val_1.fq")
 	file2 = os.path.join(sourceDir, INPUT + "_2_val_2.fq")
 	file1_new = os.path.join(sourceDir, INPUT + "_1_trimmed.fastq")
-	file2_new = os.path.join(sourceDir, INPUT +"_2_trimmed.fastq")
+	file2_new = os.path.join(sourceDir, INPUT + "_2_trimmed.fastq")
 
 	#os.rename(file1, file1_new)
 	#os.rename(file2, file2_new)
 	#exit(0)
 def mapping(param):
 	#bowtie alignment
-	bowtie = param["programs"]["bowtie2"]+" -p 8 -X 2000 --fr --no-discordant --no-mixed --minins 38 "+\
-	"--met-file "+ param["folders"]["quality"]+ "/"+ INPUT + ".alignmetrics.txt "+\
-	"-x  " + param["programs"]["bowtie_index"] + \
-	" -1 " + param["folders"]["reads"]+ "/" + INPUT + "_1_trimmed.fastq"+ \
-	" -2 " + param["folders"]["reads"]+ "/" + INPUT + "_2_trimmed.fastq |"+ \
-	param["programs"]["samtools"]+" view -bS - | "+param["programs"]["samtools"]+ " sort - "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted"
-	print(bowtie)
-	os.system(bowtie)
+	sourceDir = os.path.abspath(param["folders"]["reads"])
+	qualityDir = os.path.abspath(param["folders"]["quality"])
+	destDir = os.path.abspath(param["folders"]["bams"])
+	bowtie = {
+	'bowtie2' :  param["programs"]["bowtie2"],
+	'mapping_parameters': "-p 8 -X 2000 --fr --no-discordant --no-mixed --minins 38",
+	'bowtie_index': param["programs"]["bowtie_index"],
+	'mate1' : os.path.join(sourceDir, INPUT + "_1_trimmed.fastq"),
+	'mate2' : os.path.join(sourceDir, INPUT + "_2_trimmed.fastq"),
+	'metric_file' : os.path.join(qualityDir, INPUT + ".alignmetrics.txt"),
+	'samtools' : param["programs"]["samtools"],
+	'outputbam' : os.path.join(destDir, INPUT + ".sorted")
+	}
+	bowtieCMD = "{bowtie2} {mapping_parameters} --met-file {metric_file} -x {bowtie_index} \
+	 -1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort - {outputbam}".format(**bowtie)
+	 
+	print(bowtieCMD)
+	#os.system(bowtieCMD)
+
+def remove_junk_chromosome(args):
+	bamfile = os.popen("samtools view -h "+ args['bamfile'])
+	tempsam = open("tempsam_"+INPUT,'w')
+	for line in bamfile:
+		if(line[0] == "@"):
+			tempsam.write(line)
+			continue
+		elements = line.split('\t')
+		if(len(elements[2] <=5 and element[2] !+ "chrM" and element[2] != "*"):
+			tempsam.write(line)
+	os.system("samtools view -bS tempsam_"+INPUT+" > "selected_"+sys.argv[2])
+	
 def quality_controls(param):
 	#filter unwanted reads
-	remove_junk_chrom = "samtools view -h "+\
+	sourceDir = os.path.abspath(param["folders"]["bams"])
+	remove_chroms = {
+	'bamfile' :  os.path.join(sourceDir, INPUT + ".sorted.bam",
+	'outputbam': os.path.join(sourceDir, INPUT + ".sorted.chr.bam",
+	'samtools' : param["programs"]["samtools"]
+	}
+	remove_junk_chrom(remove_chroms)
+	"samtools view -h "+\
 	param["folders"]["bams"]+"/"+ INPUT + ".sorted.bam |"+\
 	'''awk 'substr($0,1,1) == "@"|| (length($3)<=5 && $3!="chrM" && $3 != "*")'''+\
 	'''{{print $0}}'| '''+ param["programs"]["samtools"]+ ''' view -bS - > ''' +\
