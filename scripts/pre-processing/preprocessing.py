@@ -179,45 +179,74 @@ def quality_controls(param):
 	#os.system(qualimap)
 	exit(0)
 
+def create_insertfile(args):
+	bamfile = os.popen("{samtools} view  {inputbam}".format(**args))
+	outfile = open("{insert_temp}".format(**args),'w')
+	for line in bamfile:
+		elements = line.split('\t')
+		outfile.write(elements[0]+"\t"+elements[8]+"\n")
+	outfile.close()
+def shift_cordinates(args):
+	infile =  os.popen("paste {tempbed} {insert_temp}".format(**args))
+	outfile = open("{shiftedbed}".format(**args),'w')
+	for line in infile:
+		field = line.strip().split('\t')
+		if(field[3].split('/')[0] == field[6] and field[5] == "+"):
+			outfile.write(field[0]+"\t"+str(int(field[1].strip())+4)+"\t"+field[2]+\
+			"\t"+field[3]+"\t"+field[7]+"\t"+field[5]+"\n")
+		elif(field[3].split('/')[0] == field[6] and field[5] == "-"):
+			outfile.write(field[0]+"\t"+field[1]+"\t"+str(int(field[2].strip())-5)+\
+			"\t"+ field[3]+"\t"+ field[7]+"\t"+field[5]+"\n")
+		else:
+			print("ERROR "+field[3].split('/')[0],field[6])
+	outfile.close()
+
 def peak_calling(param):
 	#shift cordinates
-	temp_bed = param["programs"]["bamtobed"]+ " -i "+ \
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.filt.bam > "+ INPUT + ".temp.bed"
-	insert_temp = param["programs"]["samtools"]+" view "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.filt.bam |"+\
-	''' awk 'BEGIN{OFS="\t"}{print $1,$9}' >  '''+\
-	INPUT +".insert.temp"
-	shift = "paste "+ INPUT + ".temp.bed " + INPUT +".insert.temp |"+\
-	'''awk 'BEGIN{OFS="\t"}{split($4,name,"/");if(name[1]== $7 && $6 == "+" ) '''+\
-	'''{print $1,$2+4,$3,$4,$8,$6}else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} '''+\
-	''' else {print "ERROR",name[1],$7}}' > ''' + \
-	param["folders"]["beds"]+"/"+ INPUT + ".sorted.chr.nodup.filt.shift.bed"
-	remove_temp = "rm " + INPUT + ".temp.bed "+ INPUT +".insert.temp"
-	
+	bamDir = os.path.abspath(param["folders"]["bams"])
+	bedsDir = os.path.abspath(param["folders"]["beds"])
+	shift_cordinate_param = {
+	"bamtobed" : param["programs"]["bamtobed"],
+	"samtools" : param["programs"]["samtools"],
+	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"tempbed" : INPUT + ".temp.bed",
+	"insert_temp" : INPUT +".insert.temp",
+	"shiftedbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed")
+	}
+	temp_bed_CMD = "{bamtobed} -i {inputbam} > {tempbed}".format(**shift_cordinate_param)
+	print(temp_bed_CMD)
+	#os.system(temp_bed_CMD)
+	#create_insertfile(shift_cordinate_param)
+	#shift_cordinates(shift_cordinate_param)
+	#os.remove("{tempbed}".format(**shift_cordinate_param))
+	#os.remove("{insert_temp}".format(**shift_cordinate_param))
+
 	#macs peak calling
-	macs = "export "+ param["env"]["macs_python_env"]+"; "+\
-	param["programs"]["macs2"]+ " callpeak --gsize hs -f BED "+\
-	"--keep-dup all  --call-summits  --shift -100 --extsize 200 "+\
-	"--nomodel --nolambda --verbose 3 "+\
-	"--treatment "+ param["folders"]["beds"]+ "/"+ INPUT + ".sorted.chr.nodup.filt.shift.bed "+  \
-	"--outdir "+ param["folders"]["peaks"]+ \
-	" --name "+ INPUT 
+	peaksDir = os.path.abspath(param["folders"]["peaks"])
+	macs = {
+	"macs_environ" : param["env"]["macs_python_env"],
+	"macs" : param["programs"]["macs2"],
+	"inputbed" :  os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed "),
+	"inputname" : INPUT,
+	"outputdir" : peaksDir,
+	}
+	macs_CMD = "export {macs_environ} ; {macs} callpeak --gsize hs -f BED --keep-dup all  \
+	--call-summits  --shift -100 --extsize 200 --nomodel --nolambda --verbose 3 \
+	--treatment {inputbed} --outdir {outputdir} --name {inputname}".format(**macs)
+	print(macs_CMD)
+	#os.system(macs_CMD)
 
 	#remove blacklisted regions from peaks
-	remove_blacklist= "intersectBed -v -a "+ param["folders"]["peaks"]+"/"+ INPUT + \
-	"_peaks.narrowPeak -b "+param["files"]["blacklist_regions"]+ " >  "+\
-	param["folders"]["peaks"]+"/"+ INPUT +"_peaks.narrowPeak.blacklistcleared"
+	remove_blacklist = {
+	"intersectBed" : param["programs"]["intersectBed"],
+	"input" : os.path.join(peaksDir, INPUT + "_peaks.narrowPeak"),
+	"blacklistfile" : param["files"]["blacklist_regions"],
+	"output" : os.path.join(peaksDir, INPUT +"_peaks.narrowPeak.blacklistcleared")
+	}
+	remove_blacklist_CMD = "{intersectBed} -v -a {input} -b {blacklistfile} > {output}".format(**remove_blacklist)
+	print(remove_blacklist_CMD)
+	#os.system(remove_blacklist_CMD)
 	
-	print(temp_bed, insert_temp,shift , remove_temp,
-	 macs,remove_blacklist,sep="\n")
-	
-	os.system(temp_bed)
-	os.system(insert_temp)
-	os.system(shift)
-	os.system(remove_temp)
-	#os.system(env)
-	os.system(macs)
-	os.system(remove_blacklist)
 def visualization(param):
 	#create bigbed
 	temp_track = ''' awk '{{OFS="\t"; print $1, $2, $3}}' '''+\
@@ -261,13 +290,13 @@ def visualization(param):
 def main():
 	with open("preprocessing_setup.json") as f:
 		param = json.load(f)
-	check_directory(param)
+	#check_directory(param)
 	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n","### START ###",sep='')
-	quality_checks(param)
-	mapping(param)
-	quality_controls(param)
+	#quality_checks(param)
+	#mapping(param)
+	#quality_controls(param)
 	peak_calling(param)
-	visualization(param)
+	#visualization(param)
 	print("\n### DONE ###","\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),sep='')
 if __name__=="__main__":
     main()

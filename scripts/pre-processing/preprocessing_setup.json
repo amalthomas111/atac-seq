@@ -31,6 +31,7 @@
 		"bedtools" : "bedtools",
 		"qualimap" : "$qualimap",
 		"bamtobed" : "bamToBed",
+		"intersectBed": "intersectBed",
 		"library_complexity" : "/home/rcf-40/amalthom/panases_soft/picard_1.122/EstimateLibraryComplexity.jar",
 		"markduplicates" : "/home/rcf-40/amalthom/panases_soft/picard_1.122/MarkDuplicates.jar",
 		"macs2" : "macs2",
