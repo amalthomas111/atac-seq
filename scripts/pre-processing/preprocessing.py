@@ -246,57 +246,98 @@ def peak_calling(param):
 	remove_blacklist_CMD = "{intersectBed} -v -a {input} -b {blacklistfile} > {output}".format(**remove_blacklist)
 	print(remove_blacklist_CMD)
 	#os.system(remove_blacklist_CMD)
+
+def create_bigbed(args):
+	infile = open("{inputfile}".format(**args))
+	outfile = open("{tempfile}".format(**args),'w')
+	for line in infile:
+		field = line.strip().split('\t')
+		outfile.write(field[0]+"\t"+field[1]+"\t"+field[2]+"\n")
+	outfile.close()
+	sort_CMD = "sort -k 1,1 -k 2,2n {tempfile} > {sortedpeak} ".format(**args)
+	print(sort_CMD)
+	#os.system(sort_CMD)
+	create_bigbed_CMD = "{bedToBigBed} {sortedpeak}  {hg19sizes} {bigbedoutput}".format(**args)
+	print(create_bigbed_CMD)
+	#os.system(create_bigbed_CMD)
+	os.remove("{tempfile}".format(**args))
+	os.remove("{sortedpeak}".format(**args))
+
+def create_bigwig(args):
+	infile = open("{inputbed}".format(**args))
+	outfile = open("{tembed}".format(**args),'w')
+	for line in infile:
+		fields = line.strip().split("\t")
+		if(fields[5] == '-'):
+			fields[1] = str(int(fields[2].strip()) - 1)
+		end = str(int(fields[1]) + 1)
+		outfile.write(fields[0]+"\t"+fields[1]+"\t"+end+"\t"+fields[3]\
+		+"\t"+ fields[4]+"\t"+fields[6]+"\n")
+	outfile.close()
+	sort_CMD = "sort -k 1,1 -k2,2n {tempbed} > {centerbed}".format(**args)
+	print(sort_CMD)
+	#os.system(sort_CMD)
+	#extend center bed
+	extend_CMD = "{bedtools} slop -i {centerbed} -g {hg19sizes} -b 15 > {15bps_extendedbed}".format(**args)
+	print(extend_CMD)
+	#os.system(extend_CMD)
+	os.remove("{tempbed}".format(**args))
+	libsize = int(os.popen("{samtools} view -c -F 4 {inputbam}".format(**args)))
+	scaling_factor = str(1000000 / libsize)
+	print(scaling_factor)
+	bedgraph_CMD = "{bedtools}  genomecov -i {15bps_extendedbed} -g {hg19sizes} ".format(**args) + \
+	"-bg -scale "+ scaling_factor + " > {bedgraphfile}".format(**args)
+	print(bedgraph_CMD)
+	#os.system(bedgraph_CMD)
+	
+	bigwig_CMD = "{bedGraphToBigWig} {bedgraphfile} {hg19sizes}  {bigwigoutput}".format(**args)
+	print(bigwig_CMD)
+	#os.system(bigwig_CMD)
 	
 def visualization(param):
+	bamDir = os.path.abspath(param["folders"]["bams"])
+	bedsDir = os.path.abspath(param["folders"]["beds"])
+	peaksDir = os.path.abspath(param["folders"]["peaks"])
+	tracksDir = os.path.abspath(param["folders"]["tracks"])
+
+	create_bigbed_parameters = {
+	"inputfile" : os.path.join(peaksDir, INPUT +"_peaks.narrowPeak.blacklistcleared"),
+	"tempfile" : os.path.join(tracksDir,  INPUT +".temp"),
+	"sortedpeak" : os.path.join(tracksDir,  INPUT +".sortedpeak"),
+	"bedToBigBed" : param["programs"]["bedToBigBed"],
+	"hg19sizes" : param["files"]["hg19.sizes.txt"],
+	"bigbedouput" : os.path.join(tracksDir,INPUT + ".bb")
+	}
 	#create bigbed
-	temp_track = ''' awk '{{OFS="\t"; print $1, $2, $3}}' '''+\
-	param["folders"]["peaks"]+"/"+ INPUT +"_peaks.narrowPeak.blacklistcleared | "+\
-	 "sort -k 1,1 -k 2,2n > "+ param["folders"]["tracks"]+"/"+ INPUT + ".temp"
-	create_bb = param["programs"]["bedToBigBed"] + " "+param["folders"]["tracks"]+"/"+ INPUT + ".temp "+ \
-	param["files"]["hg19.sizes.txt"]+ "  "+param["folders"]["tracks"]+"/"+ INPUT + ".bb"
+	create_bigbed(create_bigbed_parameters)
 	
-	#create center bed
-	center = "cat "+ param["folders"]["beds"]+ "/"+ INPUT + ".sorted.chr.nodup.filt.shift.bed |"+\
-	'''awk 'BEGIN{OFS="\t"}{if($6 == "-") $2=$3-1; print $1, $2, $2+1, $4, $5, $6}'|'''+\
-	'''sort -k 1,1 -k2,2n > '''+\
-	param["folders"]["beds"]+ "/"+ INPUT + ".sorted.chr.nodup.filt.shift.center.bed "
-	#extend reads around cut site center
-	extend = "bedtools slop -i "+ param["folders"]["beds"]+ "/"+ INPUT +\
-	 ".sorted.chr.nodup.filt.shift.center.bed -g "+ param["files"]["hg19.sizes.txt"]+ " -b 15 > "\
-	+ param["folders"]["beds"]+ "/"+ INPUT + ".15bpshifted.bed" 
-	#libsize
-	libsize = "librarySize=$("+ param["programs"]["samtools"]+" view -c -F 4 "+\
-	param["folders"]["bams"]+"/"+ INPUT + ".sorted.chr.nodup.filt.bam); "+''' expr="1000000 / $librarySize"; '''+\
-	"scaling_factor=$(echo $expr | bc -l); touch "+ param["folders"]["quality"]+"/"+ INPUT +\
-	"_lib.size.$librarySize;"+ param["programs"]["bedtools"] + " genomecov -i "+ param["folders"]["beds"]+ "/"+ INPUT +\
-	 ".15bpshifted.bed -g "+ param["files"]["hg19.sizes.txt"]+ " -bg -scale $scalingfactor > "+\
-	 param["folders"]["beds"]+ "/"+ INPUT +".bedgraph"
-	 
-	#make bigwigh
-	bw = param["programs"]["bedGraphToBigWig"]+ " "+param["folders"]["beds"]+ "/"+ INPUT +".bedgraph "\
-	+ param["files"]["hg19.sizes.txt"]+"  "+param["folders"]["tracks"]+"/"+ INPUT + ".bw"
-	
-	remove_temp = "rm "+param["folders"]["tracks"]+"/"+ INPUT + ".temp"
-	print(temp_track,create_bb,center,extend, libsize, bw, remove_temp, sep="\n")
-	os.system(temp_track)
-	os.system(create_bb)
-	os.system(center)
-	os.system(extend)
-	os.system(libsize)
-	#os.system(bedgraph)
-	#subprocess.Popen(libsize+bedgraph)
-	os.system(bw)
-	os.system(remove_temp)
+	create_bigwig_parameters = {
+	"inputbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed "),
+	"tempbed" : os.path.join(bedsDir, INPUT + ".temp.center.bed "),
+	"centerbed" : os.path.join(bedsDir, INPUT + ".center.bed "),
+	"bedtools" : param["programs"]["bedtools"],
+	"hg19sizes" : param["files"]["hg19.sizes.txt"],
+	"15bps_extendedbed" : os.path.join(bedsDir, INPUT + ".15bpextended.bed") ,
+	"samtools" : param["programs"]["samtools"],
+	"bedtools" : param["programs"]["bedtools"],
+	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"bedgraphfile" :  os.path.join(bedsDir, INPUT + ".bedgraph"),
+	"bedGraphToBigWig" : param["programs"]["bedGraphToBigWig"],
+	"bigwigoutput" : os.path.join(tracksDir,  INPUT +".bw")
+	}
+	#create bigwig
+	create_bigwig(create_bigwig_parameters)
+
 def main():
 	with open("preprocessing_setup.json") as f:
 		param = json.load(f)
-	#check_directory(param)
+	check_directory(param)
 	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n","### START ###",sep='')
-	#quality_checks(param)
-	#mapping(param)
-	#quality_controls(param)
+	quality_checks(param)
+	mapping(param)
+	quality_controls(param)
 	peak_calling(param)
-	#visualization(param)
+	visualization(param)
 	print("\n### DONE ###","\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),sep='')
 if __name__=="__main__":
     main()
