@@ -20,20 +20,32 @@ if len(sys.argv)!=3:
 	print("Usage: python3 preprocessing.py <jsonfile> <inputfilename>\nExiting!!!!\n")
 	exit(0)
 if not os.path.exists(sys.argv[1]):
-	print("Error: Input jsonfile not found \nExiting!!\n")
+	print("Error: Input jsonfile not found \n"+
+	"Usage:python3 preprocessing.py <jsonfile> <inputfilename> \nExiting!!\n")
 	exit(0)
 
 INPUT = sys.argv[2].strip()
-def check_directory(param):
+
+with open("preprocessing_setup.json") as f:
+	param = json.load(f)
+#directories
+rawreadsDir = os.path.abspath(param["folders"]["rawreads"])
+readsDir = os.path.abspath(param["folders"]["reads"])
+qualityDir = os.path.abspath(param["folders"]["quality"])
+bamsDir = os.path.abspath(param["folders"]["bams"])
+bedsDir = os.path.abspath(param["folders"]["beds"])
+peaksDir = os.path.abspath(param["folders"]["peaks"])
+tracksDir = os.path.abspath(param["folders"]["tracks"])
+
+def check_directory():
 	#check input file and folders
-	sourceDir = os.path.abspath(param["folders"]["rawreads"])
-	if not os.path.isdir(sourceDir) :
+	if not os.path.isdir(rawreadsDir) :
 		print("rawreads directory not found\nExiting!!!!\n")
 		exit(0)
-	fastq1 = os.path.join(sourceDir, INPUT + "_1.fastq")
-	fastq2 = os.path.join(sourceDir, INPUT + "_2.fastq")
+	fastq1 = os.path.join(rawreadsDir, INPUT + "_1.fastq")
+	fastq2 = os.path.join(rawreadsDir, INPUT + "_2.fastq")
 	if not os.path.exists(fastq1) or not os.path.exists(fastq2) :
-		print("Input file(s) not found\nExiting!! \n")
+		print("Input fastq file(s) not found\nExiting!! \n")
 		exit(0)
 	if not os.path.exists(param["folders"]["reads"]):
 		os.makedirs(param["folders"]["reads"])
@@ -48,68 +60,62 @@ def check_directory(param):
 	if not os.path.exists(param["folders"]["quality"]):
 		os.makedirs(param["folders"]["quality"])
 
-def quality_checks(param):
+def quality_checks():
 	#trim adaptors
-	sourceDir = os.path.abspath(param["folders"]["rawreads"])
-	trim = {
+	trim_parameters = {
 	'trim_galore' :  param["programs"]["trim_galore"],
-	'fastq1' : os.path.join(sourceDir, INPUT + "_1.fastq"),
-	'fastq2' : os.path.join(sourceDir, INPUT + "_2.fastq"),
+	'fastq1' : os.path.join(rawreadsDir, INPUT + "_1.fastq"),
+	'fastq2' : os.path.join(rawreadsDir, INPUT + "_2.fastq"),
 	'trim_parameter' : "--paired --nextera",
-	'destinationDir' : os.path.abspath(param["folders"]["reads"])
+	'destinationDir' : readsDir
 	}
-	trimCMD = "{trim_galore} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim)
+	trimCMD = "{trim_galore} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim_parameters)
 	print(trimCMD)
-	#os.system(trimCMD)
+	os.system(trimCMD)
 
 	#fastqc quality analyzis
-	sourceDir = os.path.abspath(param["folders"]["reads"])
 	fastqc_quality = {
 	'fastqc' :  param["programs"]["fastqc"],
-	'trimmed_file1' : os.path.join(sourceDir, INPUT + "_1_val_1.fq"),
-	'trimmed_file2' : os.path.join(sourceDir, INPUT + "_2_val_2.fq"),
-	'destinationDir' : param["folders"]["quality"]
+	'trimmed_file1' : os.path.join(readsDir, INPUT + "_1_val_1.fq"),
+	'trimmed_file2' : os.path.join(readsDir, INPUT + "_2_val_2.fq"),
+	'destinationDir' :qualityDir
 	}
 	fastqcCMD = "{fastqc} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc_quality)
 	print(fastqcCMD)
-	#os.system(fastqcCMD)
+	os.system(fastqcCMD)
 	
 	#renaming files
-	file1 = os.path.join(sourceDir, INPUT + "_1_val_1.fq")
-	file2 = os.path.join(sourceDir, INPUT + "_2_val_2.fq")
-	file1_new = os.path.join(sourceDir, INPUT + "_1_trimmed.fastq")
-	file2_new = os.path.join(sourceDir, INPUT + "_2_trimmed.fastq")
+	file1 = os.path.join(readsDir, INPUT + "_1_val_1.fq")
+	file2 = os.path.join(readsDir, INPUT + "_2_val_2.fq")
+	file1_new = os.path.join(readsDir, INPUT + "_1_trimmed.fastq")
+	file2_new = os.path.join(readsDir, INPUT + "_2_trimmed.fastq")
 
-	#os.rename(file1, file1_new)
-	#os.rename(file2, file2_new)
-	#exit(0)
-def mapping(param):
+	os.rename(file1, file1_new)
+	os.rename(file2, file2_new)
+
+def mapping():
 	#bowtie alignment
-	sourceDir = os.path.abspath(param["folders"]["reads"])
-	qualityDir = os.path.abspath(param["folders"]["quality"])
-	destDir = os.path.abspath(param["folders"]["bams"])
 	bowtie = {
 	'bowtie2' :  param["programs"]["bowtie2"],
 	'mapping_parameters': "-p 8 -X 2000 --fr --no-discordant --no-mixed --minins 38",
 	'bowtie_index': param["programs"]["bowtie_index"],
-	'mate1' : os.path.join(sourceDir, INPUT + "_1_trimmed.fastq"),
-	'mate2' : os.path.join(sourceDir, INPUT + "_2_trimmed.fastq"),
+	'mate1' : os.path.join(readsDir, INPUT + "_1_trimmed.fastq"),
+	'mate2' : os.path.join(readsDir, INPUT + "_2_trimmed.fastq"),
 	'metric_file' : os.path.join(qualityDir, INPUT + ".alignmetrics.txt"),
 	'samtools' : param["programs"]["samtools"],
-	'outputbam' : os.path.join(destDir, INPUT + ".sorted")
+	'outputbam' : os.path.join(bamsDir, INPUT + ".sorted")
 	}
 	bowtieCMD = "{bowtie2} {mapping_parameters} --met-file {metric_file} -x {bowtie_index} \
 	-1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort - {outputbam}".format(**bowtie)
 	 
 	print(bowtieCMD)
-	#os.system(bowtieCMD)
+	os.system(bowtieCMD)
 
-def remove_junk_chromosome(param):
+def remove_junk_chromosome():
 	#function to remove unwanted chromosomes
-	sourceDir = os.path.abspath(param["folders"]["bams"])
 	remove_chroms = {
-	'sortedbam' :  os.path.join(sourceDir, INPUT + ".sorted.bam"),
-	'outputbam': os.path.join(sourceDir, INPUT + ".sorted.chr.bam"),
+	'sortedbam' :  os.path.join(bamsDir, INPUT + ".sorted.bam"),
+	'outputbam': os.path.join(bamsDir, INPUT + ".sorted.chr.bam"),
 	'tempsam' : "tempsam_"+ INPUT,
 	'samtools' : param["programs"]["samtools"]
 	}
@@ -123,61 +129,58 @@ def remove_junk_chromosome(param):
 		if(len(elements[2]) <=5 and elements[2] != "chrM" and elements[2] != "*"):
 			tempsam.write(line)
 	tempsam.close()
-	#os.system("{samtools} view -bS {tempsam} > {outputbam}".format(**remove_chroms))
-	#os.remove("{tempsam}".format(**remove_chroms))
-def quality_controls(param):
+	os.system("{samtools} view -bS {tempsam} > {outputbam}".format(**remove_chroms))
+	os.remove("{tempsam}".format(**remove_chroms))
+def quality_controls():
 	#filter unwanted reads
-	#remove_junk_chromosome(param)
+	remove_junk_chromosome()
 
 	#remove duplicate reads
-	bamDir = os.path.abspath(param["folders"]["bams"])
-	duplicates = {
 	
+	duplicates = {
 	"markduplicate" : param["programs"]["markduplicates"],
-	"inputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.bam"),
-	"metricsfile" : os.path.join(bamDir, INPUT + ".markdup.metrics "),
-	"outputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.nodup.bam"),
+	"inputbam" : os.path.join(bamsDir, INPUT + ".sorted.chr.bam"),
+	"metricsfile" : os.path.join(bamsDir, INPUT + ".markdup.metrics "),
+	"outputbam" : os.path.join(bamsDir, INPUT + ".sorted.chr.nodup.bam"),
 	}
 	remove_duplicate_CMD = "java -Xmx2g -jar {markduplicate} INPUT={inputbam} \
 	METRICS_FILE={metricsfile} OUTPUT={outputbam} REMOVE_DUPLICATES=true \
 	ASSUME_SORTED=true".format(**duplicates)
 	print(remove_duplicate_CMD)
-	#os.system(remove_duplicate_CMD)
+	os.system(remove_duplicate_CMD)
 	
 	#mark duplicate reads
 	mark_duplicate_CMD = "java -Xmx2g -jar {markduplicate} INPUT={inputbam} \
 	METRICS_FILE={metricsfile} OUTPUT={outputbam} REMOVE_DUPLICATES=false \
 	ASSUME_SORTED=true".format(**duplicates)
 	print(mark_duplicate_CMD)
-	#os.system(mark_duplicate_CMD)
+	os.system(mark_duplicate_CMD)
 	
 	#remove low quality reads
 	filter_param = {
 	"samtools" : param["programs"]["samtools"],
-	"inputbam" : os.path.join(bamDir, INPUT + ".sorted.chr.nodup.bam"),
-	"outputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam")
+	"inputbam" : os.path.join(bamsDir, INPUT + ".sorted.chr.nodup.bam"),
+	"outputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam")
 	}
 	remove_lowqual_CMD ="{samtools}  view -b -h -q 30 {inputbam} > {outputbam}".format(**filter_param)
 	print(remove_lowqual_CMD)
-	#os.system(remove_lowqual_CMD)
+	os.system(remove_lowqual_CMD)
 
 	#index bam file
 	index_bam_CMD = "{samtools} index {outputbam}".format(**filter_param)
 	print(index_bam_CMD)
-	#os.system(index_bam_CMD)
+	os.system(index_bam_CMD)
 	
 	#qualimap stats
-	qualDir = os.path.abspath(param["folders"]["quality"])
 	qualimap_param = {
 	"qualimap" : param["programs"]["qualimap"],
-	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
-	"pdfoutput" : os.path.join(qualDir, INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf")
+	"inputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"pdfoutput" : os.path.join(qualityDir, INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf")
 	}
 	qualimap = "{qualimap} bamqc -bam {inputbam} --outfile {pdfoutput}".format(**qualimap_param)
 	
 	print(qualimap)
-	#os.system(qualimap)
-	exit(0)
+	os.system(qualimap)
 
 def create_insertfile(args):
 	bamfile = os.popen("{samtools} view  {inputbam}".format(**args))
@@ -200,29 +203,26 @@ def shift_cordinates(args):
 		else:
 			print("ERROR "+field[3].split('/')[0],field[6])
 	outfile.close()
+	os.remove("{tempbed}".format(**args))
+	os.remove("{insert_temp}".format(**args))
 
-def peak_calling(param):
+def peak_calling():
 	#shift cordinates
-	bamDir = os.path.abspath(param["folders"]["bams"])
-	bedsDir = os.path.abspath(param["folders"]["beds"])
 	shift_cordinate_param = {
 	"bamtobed" : param["programs"]["bamtobed"],
 	"samtools" : param["programs"]["samtools"],
-	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"inputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam"),
 	"tempbed" : INPUT + ".temp.bed",
 	"insert_temp" : INPUT +".insert.temp",
 	"shiftedbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed")
 	}
 	temp_bed_CMD = "{bamtobed} -i {inputbam} > {tempbed}".format(**shift_cordinate_param)
 	print(temp_bed_CMD)
-	#os.system(temp_bed_CMD)
-	#create_insertfile(shift_cordinate_param)
-	#shift_cordinates(shift_cordinate_param)
-	#os.remove("{tempbed}".format(**shift_cordinate_param))
-	#os.remove("{insert_temp}".format(**shift_cordinate_param))
-
+	os.system(temp_bed_CMD)
+	create_insertfile(shift_cordinate_param)
+	shift_cordinates(shift_cordinate_param)
+	
 	#macs peak calling
-	peaksDir = os.path.abspath(param["folders"]["peaks"])
 	macs = {
 	"macs_environ" : param["env"]["macs_python_env"],
 	"macs" : param["programs"]["macs2"],
@@ -234,7 +234,7 @@ def peak_calling(param):
 	--call-summits  --shift -100 --extsize 200 --nomodel --nolambda --verbose 3 \
 	--treatment {inputbed} --outdir {outputdir} --name {inputname}".format(**macs)
 	print(macs_CMD)
-	#os.system(macs_CMD)
+	os.system(macs_CMD)
 
 	#remove blacklisted regions from peaks
 	remove_blacklist = {
@@ -245,7 +245,7 @@ def peak_calling(param):
 	}
 	remove_blacklist_CMD = "{intersectBed} -v -a {input} -b {blacklistfile} > {output}".format(**remove_blacklist)
 	print(remove_blacklist_CMD)
-	#os.system(remove_blacklist_CMD)
+	os.system(remove_blacklist_CMD)
 
 def create_bigbed(args):
 	infile = open("{inputfile}".format(**args))
@@ -256,71 +256,65 @@ def create_bigbed(args):
 	outfile.close()
 	sort_CMD = "sort -k 1,1 -k 2,2n {tempfile} > {sortedpeak} ".format(**args)
 	print(sort_CMD)
-	#os.system(sort_CMD)
+	os.system(sort_CMD)
 	create_bigbed_CMD = "{bedToBigBed} {sortedpeak}  {hg19sizes} {bigbedoutput}".format(**args)
 	print(create_bigbed_CMD)
-	#os.system(create_bigbed_CMD)
+	os.system(create_bigbed_CMD)
 	os.remove("{tempfile}".format(**args))
 	os.remove("{sortedpeak}".format(**args))
 
 def create_bigwig(args):
 	infile = open("{inputbed}".format(**args))
-	outfile = open("{tembed}".format(**args),'w')
+	outfile = open("{tempbed}".format(**args),'w')
 	for line in infile:
 		fields = line.strip().split("\t")
 		if(fields[5] == '-'):
 			fields[1] = str(int(fields[2].strip()) - 1)
 		end = str(int(fields[1]) + 1)
 		outfile.write(fields[0]+"\t"+fields[1]+"\t"+end+"\t"+fields[3]\
-		+"\t"+ fields[4]+"\t"+fields[6]+"\n")
+		+"\t"+ fields[4]+"\t"+fields[5]+"\n")
 	outfile.close()
 	sort_CMD = "sort -k 1,1 -k2,2n {tempbed} > {centerbed}".format(**args)
 	print(sort_CMD)
-	#os.system(sort_CMD)
+	os.system(sort_CMD)
 	#extend center bed
 	extend_CMD = "{bedtools} slop -i {centerbed} -g {hg19sizes} -b 15 > {15bps_extendedbed}".format(**args)
 	print(extend_CMD)
-	#os.system(extend_CMD)
+	os.system(extend_CMD)
 	os.remove("{tempbed}".format(**args))
-	libsize = int(os.popen("{samtools} view -c -F 4 {inputbam}".format(**args)))
-	scaling_factor = str(1000000 / libsize)
+	libsize = subprocess.getoutput("{samtools} view -c -F 4 {inputbam}".format(**args))
+	scaling_factor = str(1000000 / int(libsize.strip()))
 	print(scaling_factor)
 	bedgraph_CMD = "{bedtools}  genomecov -i {15bps_extendedbed} -g {hg19sizes} ".format(**args) + \
 	"-bg -scale "+ scaling_factor + " > {bedgraphfile}".format(**args)
 	print(bedgraph_CMD)
-	#os.system(bedgraph_CMD)
-	
+	os.system(bedgraph_CMD)
 	bigwig_CMD = "{bedGraphToBigWig} {bedgraphfile} {hg19sizes}  {bigwigoutput}".format(**args)
 	print(bigwig_CMD)
-	#os.system(bigwig_CMD)
+	os.system(bigwig_CMD)
 	
-def visualization(param):
-	bamDir = os.path.abspath(param["folders"]["bams"])
-	bedsDir = os.path.abspath(param["folders"]["beds"])
-	peaksDir = os.path.abspath(param["folders"]["peaks"])
-	tracksDir = os.path.abspath(param["folders"]["tracks"])
-
+def visualization():
 	create_bigbed_parameters = {
 	"inputfile" : os.path.join(peaksDir, INPUT +"_peaks.narrowPeak.blacklistcleared"),
 	"tempfile" : os.path.join(tracksDir,  INPUT +".temp"),
 	"sortedpeak" : os.path.join(tracksDir,  INPUT +".sortedpeak"),
 	"bedToBigBed" : param["programs"]["bedToBigBed"],
 	"hg19sizes" : param["files"]["hg19.sizes.txt"],
-	"bigbedouput" : os.path.join(tracksDir,INPUT + ".bb")
+	"bigbedoutput" : os.path.join(tracksDir,INPUT + ".bb")
 	}
 	#create bigbed
 	create_bigbed(create_bigbed_parameters)
 	
 	create_bigwig_parameters = {
-	"inputbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed "),
-	"tempbed" : os.path.join(bedsDir, INPUT + ".temp.center.bed "),
-	"centerbed" : os.path.join(bedsDir, INPUT + ".center.bed "),
+	"inputbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed"),
+	"tempbed" : os.path.join(bedsDir, INPUT + ".temp.center.bed"),
+	"centerbed" : os.path.join(bedsDir, INPUT + ".center.bed"),
 	"bedtools" : param["programs"]["bedtools"],
 	"hg19sizes" : param["files"]["hg19.sizes.txt"],
 	"15bps_extendedbed" : os.path.join(bedsDir, INPUT + ".15bpextended.bed") ,
 	"samtools" : param["programs"]["samtools"],
 	"bedtools" : param["programs"]["bedtools"],
-	"inputbam" : os.path.join(bamDir, INPUT +".sorted.chr.nodup.filt.bam"),
+	"inputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam"),
 	"bedgraphfile" :  os.path.join(bedsDir, INPUT + ".bedgraph"),
 	"bedGraphToBigWig" : param["programs"]["bedGraphToBigWig"],
 	"bigwigoutput" : os.path.join(tracksDir,  INPUT +".bw")
@@ -329,15 +323,13 @@ def visualization(param):
 	create_bigwig(create_bigwig_parameters)
 
 def main():
-	with open("preprocessing_setup.json") as f:
-		param = json.load(f)
-	check_directory(param)
+	#check_directory()
 	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n","### START ###",sep='')
-	quality_checks(param)
-	mapping(param)
-	quality_controls(param)
-	peak_calling(param)
-	visualization(param)
+	quality_checks()
+	mapping()
+	quality_controls()
+	peak_calling()
+	visualization()
 	print("\n### DONE ###","\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),sep='')
 if __name__=="__main__":
     main()
