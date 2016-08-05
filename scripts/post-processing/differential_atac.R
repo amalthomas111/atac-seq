@@ -1,4 +1,20 @@
 #!/usr/bin/env Rscript
+# Rscript to identify the differential accessible site between two atac-seq samples.
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
 
 #library(session)
 #restore.session("RSession.Rda")
@@ -26,31 +42,29 @@ for(i in table)
 				list.files(path='.')
 				#print(c(label1,s1,s2))
 				#print(c(label2,s3,s4))
-				
+				#input bam files
 				bam.files=c(s1,s2,s3,s4)
 				celltype=c(label1,label1,label2,label2)
 				dd=data.frame(BAM=bam.files,CellType=celltype)
 				print("Dataframe")
 				print(dd)
 
-				#### blacklist
+				#### blacklist region
 				library(rtracklayer) 
-				data <- read.table("/home/master/WORK/egor/atac/blacklist/hg19_consensusBlacklist.bed",header=F) 
+				data <- read.table("hg19_consensusBlacklist.bed",header=F) 
 				colnames(data) <- c('chr','start','end','id','score','strand')
 				blacklist_granges <- with(data, GRanges(chr, IRanges(start+1, end),strand, score, id=id))
 				head(blacklist_granges)  
 				#saveRDS(file = "hg19-blacklist.rds", blacklist_granges)  
 
-
-
-				
 				library(csaw)
+				#Correlate reads
 				param <- readParam(discard=blacklist_granges) 
 				x <- correlateReads(bam.files,param=param)
 				frag.len <- which.max(x) - 1
 				print("Frag. Length")
 				print(frag.len)
-				
+				#plot number of reads
 				plotno=1
 				png(paste(c(heading,'-',plotno,'.distance_between_cuts.png'),collapse=''))
 				plot(1:length(x)-1, x, xlab="Delay (bp)", ylab="CCF", type="l")
