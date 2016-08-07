@@ -90,7 +90,7 @@ samtools index read_mapped.sorted.chr.nodup.filt.bam
 \begin{verbatim}
 bamToBed -i read_mapped.sorted.chr.nodup.filt.bam > temp.bed
 
-samtools view  read_mapped.sorted.chr.nodup.filt.bam \
+samtools view read_mapped.sorted.chr.nodup.filt.bam \
 | awk 'BEGIN{OFS="\t"}{print $1,$9}' > insert.temp
 
 paste temp.bed insert.temp | awk 'BEGIN{OFS="\t"}{split($4,name,"/"); \
@@ -100,7 +100,7 @@ else if(name[1]== $7 && $6 == "-" ){print $1,$2,$3-5,$4,$8,$6} \
 
 rm temp.bed .insert.temp
 \end{verbatim}
-\subsubsection{MACS2 peak calling} Now we are ready to perform peak calling. We will use  peak caller called MACS2. The shifted bed file is provided as the input for the program.
+\subsubsection{MACS2 peak calling} Now we are ready to perform peak calling. We will use  peak caller called \prog{MACS2}. The shifted bed file is provided as the input for the program.
 \begin{verbatim}
 macs2 callpeak --gsize hs \
          -f BED \
@@ -172,6 +172,28 @@ Finally the \prog{bedGraphToBigWig} availabe ucsc \href{http://hgdownload.cse.uc
 \begin{verbatim}
 bedGraphToBigWig read.bedgraph hg19.sizes.txt read.bw
 \end{verbatim}
-\subsection{Create tracks}
 \section{Post-processing}
+\subsection{Plot insert size}
+We will use the \prog{plotinsertsize.R} script to generate the insert size distribution. The script require an input file with insert size of aligned reads. Column 9 of the BAM file contains the insertsize length. We will extract it from the BAM file using the command:
+\begin{verbatim}
+samtools view -f66 read_mapped.sorted.chr.nodup.filt.bam \
+|cut -f 9|sed 's/^-//' > insertsize.txt
+\end{verbatim}
+Once the insertsize file is generated, then run the Rscript:
+\begin{verbatim}
+Rscript plotinsertsize.R insertsize.txt
+\end{verbatim}
+\subsection{Replicate correlation}
+\paragraph{Genome-wide replicate correlation:} Most of the experiments are performed to have one or more replicates. Having more replicates ensures the reproducibility of the results.It is a good practise to check the concordance of the replicates before proceeding to further analysis. The \prog{genomewide-replicate-correlation.R} finds the correlation between samples by counting the number of reads in 1000 bp non-overlapping window. The correlation.xml file contains the information of the input files. To run the script:
+\begin{verbatim}
+Rscript genomewide-replicate-correlation.R correlation.xml
+\end{verbatim}
+\subsection{Differential analysis}
+Here we use sliding window approach mentioned in the csaw paper.Using a sliding window instead of apriori called peaks makes type I error easier to control. Window-based approach has been shown to outperform some existing peak-based methods when the relevant parameters are set intelligently. The script \prog{differential-atac.R} follow the  Bioconductor workflow created by Aaron Lun for differential chip-seq analysis. The code was adapted for ATAC-seq data. The input files and path to the blacklist BED file should be mentioned in the XML file.
+\begin{verbatim}
+Rscript differential_atac.R differential.xml
+\end{verbatim}
+\subsection{Motif Discovery}
+
+
 \end{document}
