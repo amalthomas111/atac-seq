@@ -1,15 +1,50 @@
-#RScript to find the correlation of replicates using non overlapping windows
-library(BSgenome.Hsapiens.UCSC.hg19)
-library(Rsamtools)
-library(GenomicAlignments)
-#input bam files
-bamfiles <- c('68H.bam','68HR.bam',
-             '68N3.bam','68N3R.bam',
-             '68N8.bam','68N8R.bam')
-#bam file names
-bam.names <- c('68H','68HR',
-	    '68N3','68N3R',
-            '68N8','68N8R')
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
+# RScript to find the correlation of replicates using non overlapping windows
+
+args = commandArgs(trailingOnly=TRUE)
+if (length(args)==0)
+{
+  stop("Usage: Rscript genowidereplicate-correlation.R <XMLconfig. file> ", call.=FALSE)
+}
+if (!file.exists(args[1]))
+{
+  stop("Input XML file not found!\
+Usage: Rscript plotinsertsize.R <XML file>", call.=FALSE)
+}
+#libraries
+suppressPackageStartupMessages({
+	library(BSgenome.Hsapiens.UCSC.hg19)
+	library(Rsamtools)
+	library(GenomicAlignments)
+	library(gplots)
+	library(RColorBrewer)
+	library(XML)
+})
+
+#parse from XML
+data = xmlToList(xmlParse(args[1]))
+bamfiles = vector()
+bam.names = vector()
+for(f in data$BamFiles){
+	bamfiles = c(bamfiles,f)
+}
+for(name in data$BamNames){
+	bam.names =c(bam.names,name)
+}
 #chromosomes to look into
 chroms = paste0("chr",c(1:22,'X','Y'))
 #windowsize & organism
@@ -39,8 +74,6 @@ df <- data.frame(do.call("cbind",counts))
 df.filt <- df[ !rowSums(df[,colnames(df)[(1:ncol(df))]]==0)>=1, ]
 
 #plots
-library(gplots)
-library(RColorBrewer)
 #find correlation
 corr.matrix <- cor(do.call("cbind",df.filt))
 corr.matrix
@@ -52,24 +85,8 @@ png(filename = "heatmap.png",width = 480, height = 480)
 heatmap.2(corr.matrix, col=colfunc(10),margins=c(15,15),symm=F,
           trace="none",distfun=function (x) as.dist(1-x),hclust=function(x) hclust(x,method="ward.D"))
 dev.off()
-png(filename = "68H-correlation.png",width = 480, height = 480)
+png(filename = paste0(bam.names[1],"-correlation.png"),width = 480, height = 480)
 plot(df.filt[,1],df.filt[,2], col=rgb(0,100,0,50,maxColorValue=255), 
-         pch=16, log="xy", main="68H" , xlab = "68H.R1", ylab= "68H.R2",
+         pch=16, log="xy", main=bam.names[1] , xlab = bam.names[1], ylab= bam.names[2],
           xaxt ='n',yaxt = 'n')
 dev.off()
-
-png(filename = "68N3-correlation.png",width = 480, height = 480)
-plot(df.filt[,3],df.filt[,4], col=rgb(0,100,0,50,maxColorValue=255), 
-         pch=16, log="xy", main="68N3" ,xlab = "68N3.R1", ylab= "68N3.R2",
-          xaxt ='n',yaxt = 'n')
-dev.off()
-
-png(filename = "68N8-correlation.png",width = 480, height = 480)
-plot(df.filt[,5],df.filt[,6], col=rgb(0,100,0,50,maxColorValue=255), 
-         pch=16, log="xy", main="68N8" ,xlab = "68N8.R1", ylab= "68N8.R2",
-          xaxt ='n',yaxt = 'n')
-dev.off()
-#plot(log10(df.filt[,1]),log10(df.filt[,2]), col=rgb(0,100,0,50,maxColorValue=255), 
-#         pch=16, main="68H" ,xlab = "log(no. of cuts) 68H",
-#          xaxt ='n',yaxt = 'n')#labels=FALSE)
-#dev.off()

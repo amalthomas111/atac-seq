@@ -1,0 +1,10 @@
+<ReplicateCorrelation>
+	<BamFiles>
+		<File.R1>68H.bam</File.R1>
+		<File.R2>68HR.bam</File.R2>
+	</BamFiles>
+	<BamNames>
+		<Name.R1>68H</Name.R1>
+		<Name.R2>68HR</Name.R2>
+	</BamNames>
+</ReplicateCorrelation>

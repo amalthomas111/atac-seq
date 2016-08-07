@@ -1,0 +1,14 @@
+<Differential>
+	<File1>
+		<Name>s68H</Name>
+		<Bam.R1>68H.bam</Bam.R1>
+		<Bam.R2>68HR.bam</Bam.R2>
+	</File1>
+	<File2>
+		<Name>s68N3</Name>
+		<Bam.R1>68N3.bam</Bam.R1>
+		<Bam.R2>68N8.bam</Bam.R2>
+	</File2>
+	<Blacklistfile>/home/master/WORK/egor/atac/blacklist/hg19_consensusBlacklist.bed</Blacklistfile>
+</Differential>
+

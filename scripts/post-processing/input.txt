@@ -1,3 +1,0 @@
-s68N3,68N3.bam,68N3R.bam
-s68N8,68N8.bam,68N8R.bam
-s68,68H.bam,68HR.bam
