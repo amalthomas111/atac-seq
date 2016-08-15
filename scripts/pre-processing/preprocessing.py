@@ -37,13 +37,14 @@ bedsDir = os.path.abspath(param["folders"]["beds"])
 peaksDir = os.path.abspath(param["folders"]["peaks"])
 tracksDir = os.path.abspath(param["folders"]["tracks"])
 
+print(readsDir)
 def check_directory():
 	#check input file and folders
 	if not os.path.isdir(rawreadsDir) :
 		print("rawreads directory not found\nExiting!!!!\n")
 		exit(0)
-	fastq1 = os.path.join(rawreadsDir, INPUT + "_1.fastq")
-	fastq2 = os.path.join(rawreadsDir, INPUT + "_2.fastq")
+	fastq1 = os.path.join(rawreadsDir, INPUT + "_R1.fastq")
+	fastq2 = os.path.join(rawreadsDir, INPUT + "_R2.fastq")
 	if not os.path.exists(fastq1) or not os.path.exists(fastq2) :
 		print("Input fastq file(s) not found\nExiting!! \n")
 		exit(0)
@@ -60,12 +61,13 @@ def check_directory():
 	if not os.path.exists(param["folders"]["quality"]):
 		os.makedirs(param["folders"]["quality"])
 
+
 def quality_checks():
 	#trim adaptors
 	trim_parameters = {
 	'trim_galore' :  param["programs"]["trim_galore"],
-	'fastq1' : os.path.join(rawreadsDir, INPUT + "_1.fastq"),
-	'fastq2' : os.path.join(rawreadsDir, INPUT + "_2.fastq"),
+	'fastq1' : os.path.join(rawreadsDir, INPUT + "_R1.fastq"),
+	'fastq2' : os.path.join(rawreadsDir, INPUT + "_R2.fastq"),
 	'trim_parameter' : "--paired --nextera",
 	'destinationDir' : readsDir
 	}
@@ -76,8 +78,8 @@ def quality_checks():
 	#fastqc quality analyzis
 	fastqc_quality = {
 	'fastqc' :  param["programs"]["fastqc"],
-	'trimmed_file1' : os.path.join(readsDir, INPUT + "_1_val_1.fq"),
-	'trimmed_file2' : os.path.join(readsDir, INPUT + "_2_val_2.fq"),
+	'trimmed_file1' : os.path.join(readsDir, INPUT + "_R1_val_1.fq"),
+	'trimmed_file2' : os.path.join(readsDir, INPUT + "_R2_val_2.fq"),
 	'destinationDir' :qualityDir
 	}
 	fastqcCMD = "{fastqc} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc_quality)
@@ -85,8 +87,8 @@ def quality_checks():
 	os.system(fastqcCMD)
 	
 	#renaming files
-	file1 = os.path.join(readsDir, INPUT + "_1_val_1.fq")
-	file2 = os.path.join(readsDir, INPUT + "_2_val_2.fq")
+	file1 = os.path.join(readsDir, INPUT + "_R1_val_1.fq")
+	file2 = os.path.join(readsDir, INPUT + "_R2_val_2.fq")
 	file1_new = os.path.join(readsDir, INPUT + "_1_trimmed.fastq")
 	file2_new = os.path.join(readsDir, INPUT + "_2_trimmed.fastq")
 
@@ -175,9 +177,10 @@ def quality_controls():
 	qualimap_param = {
 	"qualimap" : param["programs"]["qualimap"],
 	"inputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam"),
-	"pdfoutput" : os.path.join(qualityDir, INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf")
+	"pdfoutput" : INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf",
+	"outputdir" : qualityDir
 	}
-	qualimap = "{qualimap} bamqc -bam {inputbam} --outfile {pdfoutput}".format(**qualimap_param)
+	qualimap = "{qualimap} bamqc -bam {inputbam} --outdir {outputdir} --outfile {pdfoutput}".format(**qualimap_param)
 	
 	print(qualimap)
 	os.system(qualimap)
@@ -323,7 +326,7 @@ def visualization():
 	create_bigwig(create_bigwig_parameters)
 
 def main():
-	#check_directory()
+	check_directory()
 	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n","### START ###",sep='')
 	quality_checks()
 	mapping()
