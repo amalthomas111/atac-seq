@@ -2,18 +2,19 @@
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-#  
+#
 # RScript to find the correlation of replicates using non overlapping windows
+# Author: A.T
 
 args = commandArgs(trailingOnly=TRUE)
 if (length(args)==0)
@@ -83,10 +84,11 @@ colfunc <- colorRampPalette(c("grey98",brewer.pal(6,"Blues")))
 #heatmap
 png(filename = "heatmap.png",width = 480, height = 480)
 heatmap.2(corr.matrix, col=colfunc(10),margins=c(15,15),symm=F,
-          trace="none",distfun=function (x) as.dist(1-x),hclust=function(x) hclust(x,method="ward.D"))
+          trace="none",distfun=function (x) as.dist(1-x),
+          hclust=function(x) hclust(x,method="ward.D"))
 dev.off()
 png(filename = paste0(bam.names[1],"-correlation.png"),width = 480, height = 480)
-plot(df.filt[,1],df.filt[,2], col=rgb(0,100,0,50,maxColorValue=255), 
+plot(df.filt[,1],df.filt[,2], col=rgb(0,100,0,50,maxColorValue=255),
          pch=16, log="xy", main=bam.names[1] , xlab = bam.names[1], ylab= bam.names[2],
           xaxt ='n',yaxt = 'n')
 dev.off()

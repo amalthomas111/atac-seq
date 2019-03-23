@@ -1,14 +1,15 @@
 #  !/usr/bin/env Rscript
+#  Author: A.T
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -71,14 +72,14 @@ print("Dataframe")
 print(dd)
 
 #### blacklist region
-data <- read.table(blacklistfile,header=F) 
+data <- read.table(blacklistfile,header=F)
 colnames(data) <- c('chr','start','end','id','score','strand')
 blacklist_granges <- with(data, GRanges(chr, IRanges(start+1, end),strand, score, id=id))
-head(blacklist_granges)  
-#saveRDS(file = "hg19-blacklist.rds", blacklist_granges)  
+head(blacklist_granges)
+#saveRDS(file = "hg19-blacklist.rds", blacklist_granges)
 
 #Correlate reads
-param <- readParam(discard=blacklist_granges) 
+param <- readParam(discard=blacklist_granges)
 x <- correlateReads(bam.files,param=param)
 frag.len <- which.max(x) - 1
 print("Frag. Length")
@@ -115,7 +116,7 @@ summary(keep)
 
 #pdf(file = "adjusted-bin-log-cpm.pdf")
 png(paste(c(heading,'-',plotno,'.Adjusted bin log-CPM.png'),collapse=''))
-hist(filter.stat$back.abundances, xlab="Adjusted bin log-CPM", breaks=100, main="", 
+hist(filter.stat$back.abundances, xlab="Adjusted bin log-CPM", breaks=100, main="",
 		   xlim=c(min(filter.stat$back.abundances), 0))
 global.bg <- filter.stat$abundances - filter.stat$filter
 abline(v=global.bg[1], col="red", lwd=2)

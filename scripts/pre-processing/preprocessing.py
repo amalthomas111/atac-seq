@@ -2,12 +2,12 @@
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -17,7 +17,8 @@
 import os, sys, json, time, subprocess
 
 if len(sys.argv)!=3:
-	print("Usage: python3 preprocessing.py <jsonfile> <inputfilename>\nExiting!!!!\n")
+	print("Usage: python3 preprocessing.py <jsonfile>
+          <inputfilename>\nExiting!!!!\n")
 	exit(0)
 if not os.path.exists(sys.argv[1]):
 	print("Error: Input jsonfile not found \n"+
@@ -71,7 +72,8 @@ def quality_checks():
 	'trim_parameter' : "--paired --nextera",
 	'destinationDir' : readsDir
 	}
-	trimCMD = "{trim_galore} {trim_parameter} {fastq1} {fastq2} --output_dir {destinationDir}".format(**trim_parameters)
+	trimCMD = "{trim_galore} {trim_parameter} {fastq1} {fastq2}
+               --output_dir {destinationDir}".format(**trim_parameters)
 	print(trimCMD)
 	os.system(trimCMD)
 
@@ -82,10 +84,11 @@ def quality_checks():
 	'trimmed_file2' : os.path.join(readsDir, INPUT + "_R2_val_2.fq"),
 	'destinationDir' :qualityDir
 	}
-	fastqcCMD = "{fastqc} {trimmed_file1} {trimmed_file2} -o {destinationDir}".format(**fastqc_quality)
+	fastqcCMD = "{fastqc} {trimmed_file1} {trimmed_file2} -o
+                 {destinationDir}".format(**fastqc_quality)
 	print(fastqcCMD)
 	os.system(fastqcCMD)
-	
+
 	#renaming files
 	file1 = os.path.join(readsDir, INPUT + "_R1_val_1.fq")
 	file2 = os.path.join(readsDir, INPUT + "_R2_val_2.fq")
@@ -108,8 +111,9 @@ def mapping():
 	'outputbam' : os.path.join(bamsDir, INPUT + ".sorted")
 	}
 	bowtieCMD = "{bowtie2} {mapping_parameters} --met-file {metric_file} -x {bowtie_index} \
-	-1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort - {outputbam}".format(**bowtie)
-	 
+	-1 {mate1} -2 {mate2} | {samtools} view -bS - | {samtools} sort -
+    {outputbam}".format(**bowtie)
+
 	print(bowtieCMD)
 	os.system(bowtieCMD)
 
@@ -138,7 +142,7 @@ def quality_controls():
 	remove_junk_chromosome()
 
 	#remove duplicate reads
-	
+
 	duplicates = {
 	"markduplicate" : param["programs"]["markduplicates"],
 	"inputbam" : os.path.join(bamsDir, INPUT + ".sorted.chr.bam"),
@@ -150,21 +154,22 @@ def quality_controls():
 	ASSUME_SORTED=true".format(**duplicates)
 	print(remove_duplicate_CMD)
 	os.system(remove_duplicate_CMD)
-	
+
 	#mark duplicate reads
 	mark_duplicate_CMD = "java -Xmx2g -jar {markduplicate} INPUT={inputbam} \
 	METRICS_FILE={metricsfile} OUTPUT={outputbam} REMOVE_DUPLICATES=false \
 	ASSUME_SORTED=true".format(**duplicates)
 	print(mark_duplicate_CMD)
 	os.system(mark_duplicate_CMD)
-	
+
 	#remove low quality reads
 	filter_param = {
 	"samtools" : param["programs"]["samtools"],
 	"inputbam" : os.path.join(bamsDir, INPUT + ".sorted.chr.nodup.bam"),
 	"outputbam" : os.path.join(bamsDir, INPUT +".sorted.chr.nodup.filt.bam")
 	}
-	remove_lowqual_CMD ="{samtools}  view -b -h -q 30 {inputbam} > {outputbam}".format(**filter_param)
+	remove_lowqual_CMD ="{samtools}  view -b -h -q 30 {inputbam}
+    > {outputbam}".format(**filter_param)
 	print(remove_lowqual_CMD)
 	os.system(remove_lowqual_CMD)
 
@@ -172,7 +177,7 @@ def quality_controls():
 	index_bam_CMD = "{samtools} index {outputbam}".format(**filter_param)
 	print(index_bam_CMD)
 	os.system(index_bam_CMD)
-	
+
 	#qualimap stats
 	qualimap_param = {
 	"qualimap" : param["programs"]["qualimap"],
@@ -180,8 +185,9 @@ def quality_controls():
 	"pdfoutput" : INPUT  + ".filt.sorted.chr.nodup.qualimap.pdf",
 	"outputdir" : qualityDir
 	}
-	qualimap = "{qualimap} bamqc -bam {inputbam} --outdir {outputdir} --outfile {pdfoutput}".format(**qualimap_param)
-	
+	qualimap = "{qualimap} bamqc -bam {inputbam} --outdir {outputdir}
+                --outfile {pdfoutput}".format(**qualimap_param)
+
 	print(qualimap)
 	os.system(qualimap)
 
@@ -224,7 +230,7 @@ def peak_calling():
 	os.system(temp_bed_CMD)
 	create_insertfile(shift_cordinate_param)
 	shift_cordinates(shift_cordinate_param)
-	
+
 	#macs peak calling
 	macs = {
 	"macs_environ" : param["env"]["macs_python_env"],
@@ -246,7 +252,8 @@ def peak_calling():
 	"blacklistfile" : param["files"]["blacklist_regions"],
 	"output" : os.path.join(peaksDir, INPUT +"_peaks.narrowPeak.blacklistcleared")
 	}
-	remove_blacklist_CMD = "{intersectBed} -v -a {input} -b {blacklistfile} > {output}".format(**remove_blacklist)
+	remove_blacklist_CMD = "{intersectBed} -v -a {input} -b {blacklistfile} >
+                            {output}".format(**remove_blacklist)
 	print(remove_blacklist_CMD)
 	os.system(remove_blacklist_CMD)
 
@@ -260,7 +267,8 @@ def create_bigbed(args):
 	sort_CMD = "sort -k 1,1 -k 2,2n {tempfile} > {sortedpeak} ".format(**args)
 	print(sort_CMD)
 	os.system(sort_CMD)
-	create_bigbed_CMD = "{bedToBigBed} {sortedpeak}  {hg19sizes} {bigbedoutput}".format(**args)
+	create_bigbed_CMD = "{bedToBigBed} {sortedpeak}
+                        {hg19sizes} {bigbedoutput}".format(**args)
 	print(create_bigbed_CMD)
 	os.system(create_bigbed_CMD)
 	os.remove("{tempfile}".format(**args))
@@ -274,28 +282,31 @@ def create_bigwig(args):
 		if(fields[5] == '-'):
 			fields[1] = str(int(fields[2].strip()) - 1)
 		end = str(int(fields[1]) + 1)
-		outfile.write(fields[0]+"\t"+fields[1]+"\t"+end+"\t"+fields[3]\
-		+"\t"+ fields[4]+"\t"+fields[5]+"\n")
+		outfile.write(fields[0]+"\t"+fields[1]+"\t"+end+"\t"+fields[3]+
+		              "\t"+ fields[4]+"\t"+fields[5]+"\n")
 	outfile.close()
 	sort_CMD = "sort -k 1,1 -k2,2n {tempbed} > {centerbed}".format(**args)
 	print(sort_CMD)
 	os.system(sort_CMD)
 	#extend center bed
-	extend_CMD = "{bedtools} slop -i {centerbed} -g {hg19sizes} -b 15 > {15bps_extendedbed}".format(**args)
+	extend_CMD = "{bedtools} slop -i {centerbed} -g {hg19sizes} -b 15 >
+                  {15bps_extendedbed}".format(**args)
 	print(extend_CMD)
 	os.system(extend_CMD)
 	os.remove("{tempbed}".format(**args))
 	libsize = subprocess.getoutput("{samtools} view -c -F 4 {inputbam}".format(**args))
 	scaling_factor = str(1000000 / int(libsize.strip()))
 	print(scaling_factor)
-	bedgraph_CMD = "{bedtools}  genomecov -i {15bps_extendedbed} -g {hg19sizes} ".format(**args) + \
+	bedgraph_CMD = "{bedtools}  genomecov -i {15bps_extendedbed}
+                    -g {hg19sizes} ".format(**args) + \
 	"-bg -scale "+ scaling_factor + " > {bedgraphfile}".format(**args)
 	print(bedgraph_CMD)
 	os.system(bedgraph_CMD)
-	bigwig_CMD = "{bedGraphToBigWig} {bedgraphfile} {hg19sizes}  {bigwigoutput}".format(**args)
+	bigwig_CMD = "{bedGraphToBigWig} {bedgraphfile} {hg19sizes}
+                  {bigwigoutput}".format(**args)
 	print(bigwig_CMD)
 	os.system(bigwig_CMD)
-	
+
 def visualization():
 	create_bigbed_parameters = {
 	"inputfile" : os.path.join(peaksDir, INPUT +"_peaks.narrowPeak.blacklistcleared"),
@@ -307,7 +318,7 @@ def visualization():
 	}
 	#create bigbed
 	create_bigbed(create_bigbed_parameters)
-	
+
 	create_bigwig_parameters = {
 	"inputbed" : os.path.join(bedsDir, INPUT + ".sorted.chr.nodup.filt.shift.bed"),
 	"tempbed" : os.path.join(bedsDir, INPUT + ".temp.center.bed"),
@@ -327,12 +338,14 @@ def visualization():
 
 def main():
 	check_directory()
-	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n","### START ###",sep='')
+	print("\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),"\n",
+          "### START ###",sep='')
 	quality_checks()
 	mapping()
 	quality_controls()
 	peak_calling()
 	visualization()
-	print("\n### DONE ###","\n",time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),sep='')
+	print("\n### DONE ###","\n",
+          time.strftime("%d-%m-%Y %H:%M:%S", time.localtime()),sep='')
 if __name__=="__main__":
     main()
